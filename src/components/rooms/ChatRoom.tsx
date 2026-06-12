@@ -180,9 +180,9 @@ export function ChatRoom() {
             <div
               className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
               style={{
-                background: `${msg.sender_color}20`,
-                border: `1.5px solid ${msg.sender_color}`,
-                color: msg.sender_color,
+                background: msg.is_creator_message ? 'rgba(255,215,0,0.15)' : `${msg.sender_color}20`,
+                border: msg.is_creator_message ? '1.5px solid #FFD700' : `1.5px solid ${msg.sender_color}`,
+                color: msg.is_creator_message ? '#FFD700' : msg.sender_color,
               }}
             >
               {msg.is_creator_message ? <Crown size={12} /> : msg.sender_name[0]?.toUpperCase() ?? '?'}
@@ -191,13 +191,13 @@ export function ChatRoom() {
               <div className="flex items-baseline gap-2 mb-0.5">
                 <span
                   className="text-xs font-semibold"
-                  style={{ color: msg.is_creator_message ? accent : msg.sender_color }}
+                  style={{ color: msg.is_creator_message ? '#FFD700' : msg.sender_color }}
                 >
                   {msg.sender_name}
                   {msg.is_creator_message && (
                     <span
                       className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full font-bold tracking-wide"
-                      style={{ background: `${accent}25`, color: accent }}
+                      style={{ background: 'rgba(255,215,0,0.15)', color: '#FFD700' }}
                     >
                       CREATOR
                     </span>
@@ -206,10 +206,10 @@ export function ChatRoom() {
                 <span className="text-white/20 text-[10px]">{timeAgo(msg.created_at)}</span>
               </div>
               <div
-                className="text-sm text-white/85 leading-relaxed break-words px-3 py-2 rounded-xl rounded-tl-none inline-block max-w-full"
+                className={`text-sm text-white/85 leading-relaxed break-words px-3 py-2 rounded-xl rounded-tl-none inline-block max-w-full ${!msg.is_creator_message ? 'ml-6' : ''}`}
                 style={{
-                  background: msg.is_creator_message ? `${accent}15` : 'rgba(255,255,255,0.05)',
-                  border: msg.is_creator_message ? `1px solid ${accent}25` : '1px solid rgba(255,255,255,0.06)',
+                  background: msg.is_creator_message ? 'rgba(255,215,0,0.08)' : 'rgba(255,255,255,0.05)',
+                  border: msg.is_creator_message ? '1px solid #FFD70040' : '1px solid rgba(255,255,255,0.06)',
                 }}
               >
                 {msg.message}

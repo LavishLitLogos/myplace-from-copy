@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { CreatorProfile, Room, DEFAULT_ROOMS } from '../types';
 import { useAuth } from './AuthContext';
 
-export const ADMIN_EMAIL = 'homerunroyce@gmail.com';
+export const ADMIN_EMAILS = ['homerunroyce@gmail.com', 'thisbeatizbananaz@gmail.com'];
 
 interface PlaceContextValue {
   profile: CreatorProfile | null;
@@ -11,6 +11,8 @@ interface PlaceContextValue {
   loading: boolean;
   isCreator: boolean;
   isAdmin: boolean;
+  viewingProfile: CreatorProfile | null;
+  setViewingProfile: (p: CreatorProfile | null) => void;
   refreshProfile: () => Promise<void>;
   refreshRooms: () => Promise<void>;
   updateProfile: (updates: Partial<CreatorProfile>) => Promise<{ error: string | null }>;
@@ -31,7 +33,6 @@ async function seedRooms(creatorId: string): Promise<Room[]> {
 }
 
 async function ensureProfile(userId: string): Promise<CreatorProfile | null> {
-  // Try to find an existing profile
   const { data: existing } = await supabase
     .from('creator_profile')
     .select('*')
@@ -40,7 +41,6 @@ async function ensureProfile(userId: string): Promise<CreatorProfile | null> {
     .maybeSingle();
 
   if (existing) {
-    // Claim unclaimed profile
     if (!existing.user_id) {
       const { data: claimed } = await supabase
         .from('creator_profile')
@@ -53,7 +53,6 @@ async function ensureProfile(userId: string): Promise<CreatorProfile | null> {
     return existing;
   }
 
-  // No profile at all — create one
   const { data: created, error } = await supabase
     .from('creator_profile')
     .insert({
@@ -75,21 +74,19 @@ export function PlaceProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewingProfile, setViewingProfile] = useState<CreatorProfile | null>(null);
 
   const isCreator = !!(user && profile);
-  const isAdmin = !!(user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+  const isAdmin = !!(user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
 
-  // Load or create profile + rooms
   const loadPlace = useCallback(async (userId?: string) => {
     setLoading(true);
 
     let prof: CreatorProfile | null = null;
 
     if (userId) {
-      // Authenticated: ensure profile exists (create if missing)
       prof = await ensureProfile(userId);
     } else {
-      // Unauthenticated: just try to load public profile
       const { data } = await supabase
         .from('creator_profile')
         .select('*')
@@ -111,7 +108,6 @@ export function PlaceProvider({ children }: { children: ReactNode }) {
       if (roomData && roomData.length > 0) {
         setRooms(roomData);
       } else if (userId) {
-        // Only seed rooms when authenticated (we have write access)
         const seeded = await seedRooms(prof.id);
         setRooms(seeded);
       }
@@ -120,7 +116,6 @@ export function PlaceProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  // Initial load
   useEffect(() => {
     loadPlace(user?.id);
   }, [user?.id, loadPlace]);
@@ -130,14 +125,15 @@ export function PlaceProvider({ children }: { children: ReactNode }) {
   }, [user?.id, loadPlace]);
 
   const refreshRooms = useCallback(async () => {
-    if (!profile) return;
+    const prof = viewingProfile ?? profile;
+    if (!prof) return;
     const { data } = await supabase
       .from('rooms')
       .select('*')
-      .eq('creator_id', profile.id)
+      .eq('creator_id', prof.id)
       .order('sort_order', { ascending: true });
     setRooms(data ?? []);
-  }, [profile?.id]);
+  }, [profile?.id, viewingProfile?.id]);
 
   async function updateProfile(updates: Partial<CreatorProfile>) {
     if (!profile) return { error: 'No profile loaded' };
@@ -154,6 +150,7 @@ export function PlaceProvider({ children }: { children: ReactNode }) {
   return (
     <PlaceCtx.Provider value={{
       profile, rooms, loading, isCreator, isAdmin,
+      viewingProfile, setViewingProfile,
       refreshProfile, refreshRooms, updateProfile,
     }}>
       {children}

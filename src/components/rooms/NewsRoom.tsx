@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Newspaper, Pin, Star, ArrowLeft, Plus, Trash2, Edit3 } from 'lucide-react';
+import { Newspaper, Pin, Star, ArrowLeft, Plus, Trash2, CreditCard as Edit3, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePlace } from '../../contexts/PlaceContext';
 import { NewsPost, ViewName } from '../../types';
+import { Reactions } from '../ui/Reactions';
+import { CommentsSection } from '../ui/CommentsSection';
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -18,7 +20,7 @@ export function NewsRoom({ onNavigate }: NewsRoomProps) {
   const [selected, setSelected] = useState<NewsPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', body: '', cover_url: '' });
+  const [form, setForm] = useState({ title: '', body: '', cover_url: '', allow_comments: true, is_visible: true });
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ title: '', body: '', cover_url: '' });
@@ -29,7 +31,11 @@ export function NewsRoom({ onNavigate }: NewsRoomProps) {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('news_posts').select('*').eq('creator_id', profile!.id).order('is_pinned', { ascending: false }).order('publish_at', { ascending: false });
+    let query = supabase.from('news_posts').select('*').eq('creator_id', profile!.id);
+    if (!isCreator) {
+      query = query.eq('is_visible', true);
+    }
+    const { data } = await query.order('is_pinned', { ascending: false }).order('publish_at', { ascending: false });
     setPosts(data ?? []);
     setLoading(false);
   }
@@ -37,8 +43,8 @@ export function NewsRoom({ onNavigate }: NewsRoomProps) {
   async function addPost() {
     if (!form.title.trim() || !form.body.trim() || saving) return;
     setSaving(true);
-    await supabase.from('news_posts').insert({ creator_id: profile!.id, title: form.title.trim(), body: form.body.trim(), cover_url: form.cover_url.trim(), publish_at: new Date().toISOString() });
-    setSaving(false); setAddOpen(false); setForm({ title: '', body: '', cover_url: '' }); load();
+    await supabase.from('news_posts').insert({ creator_id: profile!.id, title: form.title.trim(), body: form.body.trim(), cover_url: form.cover_url.trim(), publish_at: new Date().toISOString(), allow_comments: form.allow_comments, is_visible: form.is_visible });
+    setSaving(false); setAddOpen(false); setForm({ title: '', body: '', cover_url: '', allow_comments: true, is_visible: true }); load();
   }
 
   async function deletePost(id: string) {
@@ -47,7 +53,7 @@ export function NewsRoom({ onNavigate }: NewsRoomProps) {
     if (selected?.id === id) setSelected(null);
   }
 
-  async function toggle(id: string, field: 'is_pinned' | 'is_featured', val: boolean) {
+  async function toggle(id: string, field: 'is_pinned' | 'is_featured' | 'allow_comments' | 'is_visible', val: boolean) {
     await supabase.from('news_posts').update({ [field]: !val }).eq('id', id);
     setPosts(prev => prev.map(p => p.id === id ? { ...p, [field]: !val } : p));
     if (selected?.id === id) setSelected(prev => prev ? { ...prev, [field]: !val } : prev);
@@ -88,6 +94,14 @@ export function NewsRoom({ onNavigate }: NewsRoomProps) {
               <h1 className="text-white font-bold text-2xl mb-2 leading-tight">{selected.title}</h1>
               <p className="text-white/40 text-xs mb-6">{formatDate(selected.publish_at ?? selected.created_at)}</p>
               <div className="text-white/75 text-sm leading-relaxed whitespace-pre-wrap">{selected.body}</div>
+              {selected.allow_comments && (
+                <>
+                  <div className="mt-4">
+                    <Reactions contentType="news_post" contentId={selected.id} />
+                  </div>
+                  <CommentsSection contentType="news_post" contentId={selected.id} creatorId={profile!.id} />
+                </>
+              )}
               {isCreator && (
                 <div className="flex gap-2 mt-6">
                   <button onClick={() => { setEditing(selected.id); setEditForm({ title: selected.title, body: selected.body, cover_url: selected.cover_url }); }} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold" style={{ background: `${accent}20`, color: accent }}><Edit3 size={12} /> Edit</button>
@@ -113,19 +127,19 @@ export function NewsRoom({ onNavigate }: NewsRoomProps) {
 
       {pinned.length > 0 && (
         <Bin label="Pinned Updates" icon={Pin} accent={accent}>
-          <div className="space-y-2">{pinned.map(post => <PostCard key={post.id} post={post} accent={accent} onClick={() => setSelected(post)} isCreator={isCreator} onPin={() => toggle(post.id, 'is_pinned', post.is_pinned)} onFeature={() => toggle(post.id, 'is_featured', post.is_featured)} onDelete={() => deletePost(post.id)} />)}</div>
+          <div className="space-y-2">{pinned.map(post => <PostCard key={post.id} post={post} accent={accent} onClick={() => setSelected(post)} isCreator={isCreator} onPin={() => toggle(post.id, 'is_pinned', post.is_pinned)} onFeature={() => toggle(post.id, 'is_featured', post.is_featured)} onDelete={() => deletePost(post.id)} onToggleComments={() => toggle(post.id, 'allow_comments', post.allow_comments)} onToggleVisibility={() => toggle(post.id, 'is_visible', post.is_visible)} />)}</div>
         </Bin>
       )}
 
       {featured.length > 0 && (
         <Bin label="Featured" icon={Star} accent={accent}>
-          <div className="space-y-2">{featured.map(post => <PostCard key={post.id} post={post} accent={accent} onClick={() => setSelected(post)} isCreator={isCreator} onPin={() => toggle(post.id, 'is_pinned', post.is_pinned)} onFeature={() => toggle(post.id, 'is_featured', post.is_featured)} onDelete={() => deletePost(post.id)} />)}</div>
+          <div className="space-y-2">{featured.map(post => <PostCard key={post.id} post={post} accent={accent} onClick={() => setSelected(post)} isCreator={isCreator} onPin={() => toggle(post.id, 'is_pinned', post.is_pinned)} onFeature={() => toggle(post.id, 'is_featured', post.is_featured)} onDelete={() => deletePost(post.id)} onToggleComments={() => toggle(post.id, 'allow_comments', post.allow_comments)} onToggleVisibility={() => toggle(post.id, 'is_visible', post.is_visible)} />)}</div>
         </Bin>
       )}
 
       {latest.length > 0 && (
         <Bin label="Latest Posts" icon={Newspaper} accent={accent}>
-          <div className="space-y-2">{latest.map(post => <PostCard key={post.id} post={post} accent={accent} onClick={() => setSelected(post)} isCreator={isCreator} onPin={() => toggle(post.id, 'is_pinned', post.is_pinned)} onFeature={() => toggle(post.id, 'is_featured', post.is_featured)} onDelete={() => deletePost(post.id)} />)}</div>
+          <div className="space-y-2">{latest.map(post => <PostCard key={post.id} post={post} accent={accent} onClick={() => setSelected(post)} isCreator={isCreator} onPin={() => toggle(post.id, 'is_pinned', post.is_pinned)} onFeature={() => toggle(post.id, 'is_featured', post.is_featured)} onDelete={() => deletePost(post.id)} onToggleComments={() => toggle(post.id, 'allow_comments', post.allow_comments)} onToggleVisibility={() => toggle(post.id, 'is_visible', post.is_visible)} />)}</div>
         </Bin>
       )}
 
@@ -144,6 +158,10 @@ export function NewsRoom({ onNavigate }: NewsRoomProps) {
           <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Title..." className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/20 text-sm outline-none focus:border-white/25" />
           <textarea value={form.body} onChange={e => setForm(p => ({ ...p, body: e.target.value }))} placeholder="Write your post..." rows={4} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/20 text-sm outline-none focus:border-white/25 resize-none" />
           <input value={form.cover_url} onChange={e => setForm(p => ({ ...p, cover_url: e.target.value }))} placeholder="Cover image URL (optional)..." type="url" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/20 text-sm outline-none focus:border-white/25" />
+          <div className="flex gap-3">
+            <label className="flex items-center gap-2 text-white text-sm cursor-pointer"><input type="checkbox" checked={form.allow_comments} onChange={e => setForm(p => ({ ...p, allow_comments: e.target.checked }))} className="w-4 h-4 rounded accent-current" /> Allow Comments</label>
+            <label className="flex items-center gap-2 text-white text-sm cursor-pointer"><input type="checkbox" checked={form.is_visible} onChange={e => setForm(p => ({ ...p, is_visible: e.target.checked }))} className="w-4 h-4 rounded accent-current" /> Visible</label>
+          </div>
           <div className="flex gap-2">
             <button onClick={addPost} disabled={!form.title.trim() || saving} className="flex-1 py-2.5 rounded-xl font-bold text-sm disabled:opacity-50 active:scale-95 transition-all" style={{ background: accent, color: '#000' }}>{saving ? 'Posting...' : 'Post'}</button>
             <button onClick={() => setAddOpen(false)} className="px-4 py-2.5 rounded-xl text-sm text-white/50">Cancel</button>
@@ -158,7 +176,7 @@ function Bin({ label, icon: Icon, accent, children }: { label: string; icon: Rea
   return (<div className="px-4 py-2"><div className="flex items-center gap-2 mb-3"><div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: `${accent}18` }}><Icon size={12} style={{ color: accent }} /></div><p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: accent }}>{label}</p></div>{children}</div>);
 }
 
-function PostCard({ post, accent, onClick, isCreator, onPin, onFeature, onDelete }: { post: NewsPost; accent: string; onClick: () => void; isCreator: boolean; onPin: () => void; onFeature: () => void; onDelete: () => void }) {
+function PostCard({ post, accent, onClick, isCreator, onPin, onFeature, onDelete, onToggleComments, onToggleVisibility }: { post: NewsPost; accent: string; onClick: () => void; isCreator: boolean; onPin: () => void; onFeature: () => void; onDelete: () => void; onToggleComments?: () => void; onToggleVisibility?: () => void }) {
   return (
     <div className="relative">
       <button onClick={onClick} className="w-full text-left flex items-start gap-3 p-3 rounded-xl transition-all active:scale-98" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -169,7 +187,7 @@ function PostCard({ post, accent, onClick, isCreator, onPin, onFeature, onDelete
           <p className="text-white/40 text-xs line-clamp-2 mt-0.5">{post.body}</p>
         </div>
       </button>
-      {isCreator && <div className="absolute top-1 right-1 flex gap-0.5"><button onClick={onPin} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-white/50"><Pin size={8} /></button><button onClick={onFeature} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-yellow-400"><Star size={8} /></button><button onClick={onDelete} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-red-400"><Trash2 size={8} /></button></div>}
+      {isCreator && <div className="absolute top-1 right-1 flex gap-0.5"><button onClick={(e) => { e.stopPropagation(); onToggleComments?.(); }} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-blue-400" title="Toggle Comments"><Edit3 size={8} /></button><button onClick={(e) => { e.stopPropagation(); onToggleVisibility?.(); }} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-gray-400" title="Toggle Visibility"><Eye size={8} /></button><button onClick={onPin} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-white/50"><Pin size={8} /></button><button onClick={onFeature} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-yellow-400"><Star size={8} /></button><button onClick={onDelete} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-red-400"><Trash2 size={8} /></button></div>}
     </div>
   );
 }

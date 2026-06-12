@@ -9,6 +9,9 @@ export interface CreatorProfile {
   background_color: string;
   welcome_message: string;
   place_logo_url: string;
+  is_active: boolean;
+  presence_status: string;
+  presence_updated_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +40,8 @@ export interface MusicTrack {
   track_number: number;
   is_featured: boolean;
   is_pinned: boolean;
+  is_visible: boolean;
+  allow_comments: boolean;
   sort_order: number;
   created_at: string;
 }
@@ -51,6 +56,7 @@ export interface MusicAlbum {
   description: string;
   is_featured: boolean;
   is_pinned: boolean;
+  is_visible: boolean;
   sort_order: number;
   created_at: string;
   tracks?: MusicTrack[];
@@ -66,6 +72,7 @@ export interface Video {
   type: 'music_video' | 'short' | 'interview' | 'behind_scenes' | 'livestream_replay';
   is_featured: boolean;
   is_pinned: boolean;
+  is_visible: boolean;
   sort_order: number;
   created_at: string;
 }
@@ -79,6 +86,8 @@ export interface NewsPost {
   is_featured: boolean;
   is_pinned: boolean;
   is_published: boolean;
+  allow_comments: boolean;
+  is_visible: boolean;
   publish_at: string;
   sort_order: number;
   created_at: string;
@@ -95,6 +104,8 @@ export interface MerchProduct {
   button_label: string;
   button_url: string;
   is_featured: boolean;
+  eligible_daily_drop: boolean;
+  is_visible: boolean;
   sort_order: number;
   created_at: string;
 }
@@ -108,6 +119,8 @@ export interface Exclusive {
   file_url: string;
   file_type: 'download' | 'vip' | 'behind_scenes' | 'fan_reward' | 'other';
   is_featured: boolean;
+  eligible_daily_drop: boolean;
+  is_visible: boolean;
   sort_order: number;
   created_at: string;
 }
@@ -124,16 +137,27 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export interface FamzRelationship {
+  id: string;
+  user_id: string;
+  creator_id: string;
+  created_at: string;
+}
+
 export type ViewName =
   | 'splash'
   | 'home'
   | 'auth'
+  | 'famz:home'
+  | 'famz:profile'
+  | 'famz:creator_place'
   | 'room:music'
   | 'room:chat'
   | 'room:merch'
   | 'room:videos'
   | 'room:news'
   | 'room:exclusives'
+  | 'room:daily_drop'
   | 'creator:panel'
   | 'creator:profile'
   | 'creator:music'
@@ -151,6 +175,7 @@ export const DEFAULT_ROOMS: Omit<Room, 'id' | 'creator_id'>[] = [
   { slug: 'videos', name: 'Videos', icon: 'Play', color: '#A855F7', enabled: true, sort_order: 3, is_custom: false },
   { slug: 'news', name: 'News', icon: 'Newspaper', color: '#F97316', enabled: true, sort_order: 4, is_custom: false },
   { slug: 'exclusives', name: 'Exclusives', icon: 'Star', color: '#EAB308', enabled: true, sort_order: 5, is_custom: false },
+  { slug: 'daily_drop', name: 'Daily Drop', icon: 'Zap', color: '#3B82F6', enabled: true, sort_order: 6, is_custom: false },
 ];
 
 export function formatPrice(cents: number): string {

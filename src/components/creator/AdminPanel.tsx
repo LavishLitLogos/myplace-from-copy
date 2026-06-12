@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 export function AdminPanel() {
   const { profile, refreshProfile } = usePlace();
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmReset, setConfirmReset] = useState<string | false>(false);
   const [message, setMessage] = useState('');
 
   const accent = profile?.accent_color ?? '#EC4899';
