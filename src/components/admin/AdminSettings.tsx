@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase';
 import { PlatformSettings } from '../../types';
 
 export function AdminSettings() {
-  const [settings, setSettings] = useState<PlatformSettings | null>(null);
   const [loading, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
@@ -15,7 +14,8 @@ export function AdminSettings() {
     allow_famz_signups: true,
     platform_announcement: '',
     daily_drop_minimum: 1,
-    upload_limit_mb: 50,
+    music_upload_limit_mb: 20.5,
+    exclusives_upload_limit_mb: 15.5,
     maintenance_mode: false,
     support_email: 'support@myplace.app',
   });
@@ -30,16 +30,16 @@ export function AdminSettings() {
       .select('*')
       .maybeSingle();
     if (data) {
-      setSettings(data);
       setForm({
         require_creator_verification: data.require_creator_verification,
         allow_creator_signups: data.allow_creator_signups,
         allow_famz_signups: data.allow_famz_signups,
-        platform_announcement: data.platform_announcement,
+        platform_announcement: data.platform_announcement ?? '',
         daily_drop_minimum: data.daily_drop_minimum,
-        upload_limit_mb: data.upload_limit_mb,
+        music_upload_limit_mb: data.music_upload_limit_mb ?? 20.5,
+        exclusives_upload_limit_mb: data.exclusives_upload_limit_mb ?? 15.5,
         maintenance_mode: data.maintenance_mode,
-        support_email: data.support_email,
+        support_email: data.support_email ?? 'support@myplace.app',
       });
     }
   }
@@ -51,7 +51,15 @@ export function AdminSettings() {
     const { error: err } = await supabase
       .from('platform_settings')
       .update({
-        ...form,
+        require_creator_verification: form.require_creator_verification,
+        allow_creator_signups: form.allow_creator_signups,
+        allow_famz_signups: form.allow_famz_signups,
+        platform_announcement: form.platform_announcement,
+        daily_drop_minimum: form.daily_drop_minimum,
+        music_upload_limit_mb: form.music_upload_limit_mb,
+        exclusives_upload_limit_mb: form.exclusives_upload_limit_mb,
+        maintenance_mode: form.maintenance_mode,
+        support_email: form.support_email,
         updated_at: new Date().toISOString(),
       })
       .eq('id', '11111111-1111-1111-1111-111111111111');
@@ -98,7 +106,7 @@ export function AdminSettings() {
             onChange={v => setForm(p => ({ ...p, allow_famz_signups: v }))}
           />
           <Toggle
-            label="Require Creator Verification"
+            label="Require Creator Verification Request"
             value={form.require_creator_verification}
             onChange={v => setForm(p => ({ ...p, require_creator_verification: v }))}
           />
@@ -109,7 +117,7 @@ export function AdminSettings() {
           <p className="text-white font-semibold text-sm mb-3">Daily Drop</p>
 
           <div>
-            <label className="text-white/50 text-xs mb-1 block">Minimum Requirements</label>
+            <label className="text-white/50 text-xs mb-1 block">Minimum Eligible Content</label>
             <input
               type="number"
               value={form.daily_drop_minimum}
@@ -124,15 +132,29 @@ export function AdminSettings() {
         <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
           <p className="text-white font-semibold text-sm mb-3">Upload Limits</p>
 
-          <div>
-            <label className="text-white/50 text-xs mb-1 block">Max Upload Size (MB)</label>
-            <input
-              type="number"
-              value={form.upload_limit_mb}
-              onChange={e => setForm(p => ({ ...p, upload_limit_mb: parseInt(e.target.value) || 50 }))}
-              min={1}
-              className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-white/30"
-            />
+          <div className="space-y-3">
+            <div>
+              <label className="text-white/50 text-xs mb-1 block">Music Upload Limit (MB)</label>
+              <input
+                type="number"
+                step="0.5"
+                value={form.music_upload_limit_mb}
+                onChange={e => setForm(p => ({ ...p, music_upload_limit_mb: parseFloat(e.target.value) || 20.5 }))}
+                min={1}
+                className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-white/30"
+              />
+            </div>
+            <div>
+              <label className="text-white/50 text-xs mb-1 block">Exclusives Upload Limit (MB)</label>
+              <input
+                type="number"
+                step="0.5"
+                value={form.exclusives_upload_limit_mb}
+                onChange={e => setForm(p => ({ ...p, exclusives_upload_limit_mb: parseFloat(e.target.value) || 15.5 }))}
+                min={1}
+                className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-white/30"
+              />
+            </div>
           </div>
         </div>
 

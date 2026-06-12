@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { CreatorProfile, Room, DEFAULT_ROOMS } from '../types';
 import { useAuth } from './AuthContext';
 
-export const ADMIN_EMAIL = 'homerunroyce@gmail.com';
+export const ADMIN_EMAILS = ['homerunroyce@gmail.com', 'thisbeatizbananaz@gmail.com'];
 
 interface PlaceContextValue {
   profile: CreatorProfile | null;
@@ -77,7 +77,7 @@ export function PlaceProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const isCreator = !!(user && profile);
-  const isAdmin = !!(user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+  const isAdmin = !!(user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
 
   // Load or create profile + rooms
   const loadPlace = useCallback(async (userId?: string) => {

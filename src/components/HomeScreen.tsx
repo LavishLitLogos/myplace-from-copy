@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  Music, MessageCircle, ShoppingBag, Play, Newspaper,
-  Star, Settings, User, Circle, Grid, Zap,
-} from 'lucide-react';
+import { Music, MessageCircle, ShoppingBag, Play, Newspaper, Star, Settings, User, Circle, Grid2x2 as Grid, Zap } from 'lucide-react';
 import { usePlace } from '../contexts/PlaceContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ViewName, DEFAULT_ROOMS } from '../types';
@@ -235,8 +232,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
         <button
           onClick={() => {
             if (isCreator) onNavigate('creator:panel');
-            else if (user) onNavigate('auth'); // FAMZ — show profile about
-            else onNavigate('auth'); // Not signed in
+            else onNavigate('room:chat'); // FAMZ or guest — go to chat room
           }}
           className="relative z-10 transition-transform active:scale-95"
         >
