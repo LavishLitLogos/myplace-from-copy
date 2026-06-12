@@ -1,0 +1,24 @@
+{
+  "name": "MyPlace™",
+  "short_name": "MyPlace",
+  "description": "Your creator-owned digital Place",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/myplacelogo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/myplacelogo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["music", "entertainment", "social"],
+  "scope": "/"
+}
