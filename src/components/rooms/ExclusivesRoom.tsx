@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Star, Download, Lock, Crown, Plus, Trash2 } from 'lucide-react';
+import { Star, Download, Lock, Crown, Plus, Trash2, Zap, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePlace } from '../../contexts/PlaceContext';
 import { Exclusive, ViewName } from '../../types';
 import { Modal } from '../ui/Modal';
+import { ImageUpload } from '../ui/ImageUpload';
+import { FileUpload } from '../ui/FileUpload';
 
 const TYPE_ICONS: Record<string, React.ElementType> = { download: Download, vip: Crown, behind_scenes: Star, fan_reward: Star, other: Lock };
 const TYPE_LABELS: Record<string, string> = { download: 'Downloads', vip: 'VIP Content', behind_scenes: 'Behind the Scenes', fan_reward: 'Fan Rewards', other: 'Exclusives' };
@@ -19,7 +21,7 @@ export function ExclusivesRoom({ onNavigate }: ExclusivesRoomProps) {
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', cover_url: '', file_url: '', file_type: 'download' });
+  const [form, setForm] = useState({ title: '', description: '', cover_url: '', file_url: '', file_type: 'download', eligible_daily_drop: false, is_visible: true });
 
   const accent = profile?.accent_color ?? '#EC4899';
 
@@ -27,7 +29,11 @@ export function ExclusivesRoom({ onNavigate }: ExclusivesRoomProps) {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('exclusives').select('*').eq('creator_id', profile!.id).order('is_featured', { ascending: false }).order('sort_order');
+    let query = supabase.from('exclusives').select('*').eq('creator_id', profile!.id);
+    if (!isCreator) {
+      query = query.eq('is_visible', true);
+    }
+    const { data } = await query.order('is_featured', { ascending: false }).order('sort_order');
     setItems(data ?? []);
     setLoading(false);
   }
@@ -38,13 +44,24 @@ export function ExclusivesRoom({ onNavigate }: ExclusivesRoomProps) {
     await supabase.from('exclusives').insert({
       creator_id: profile!.id, title: form.title.trim(), description: form.description.trim(),
       cover_url: form.cover_url.trim(), file_url: form.file_url.trim(), file_type: form.file_type, sort_order: items.length,
+      is_visible: form.is_visible, eligible_daily_drop: form.eligible_daily_drop,
     });
-    setSaving(false); setAddOpen(false); setForm({ title: '', description: '', cover_url: '', file_url: '', file_type: 'download' }); load();
+    setSaving(false); setAddOpen(false); setForm({ title: '', description: '', cover_url: '', file_url: '', file_type: 'download', eligible_daily_drop: false, is_visible: true }); load();
   }
 
   async function toggleFeature(id: string, featured: boolean) {
     await supabase.from('exclusives').update({ is_featured: !featured }).eq('id', id);
     setItems(prev => prev.map(i => i.id === id ? { ...i, is_featured: !featured } : i));
+  }
+
+  async function toggleVisibility(id: string, isVisible: boolean) {
+    await supabase.from('exclusives').update({ is_visible: !isVisible }).eq('id', id);
+    setItems(prev => prev.map(i => i.id === id ? { ...i, is_visible: !isVisible } : i));
+  }
+
+  async function toggleEligibleDailyDrop(id: string, eligible: boolean) {
+    await supabase.from('exclusives').update({ eligible_daily_drop: !eligible }).eq('id', id);
+    setItems(prev => prev.map(i => i.id === id ? { ...i, eligible_daily_drop: !eligible } : i));
   }
 
   async function deleteItem(id: string) {
@@ -75,13 +92,13 @@ export function ExclusivesRoom({ onNavigate }: ExclusivesRoomProps) {
 
       {featured.length > 0 && (
         <Bin label="Featured" icon={Star} accent={accent}>
-          <div className="space-y-3">{featured.map(item => <ExclusiveFeaturedCard key={item.id} item={item} accent={accent} isCreator={isCreator} onFeature={() => toggleFeature(item.id, item.is_featured)} onDelete={() => deleteItem(item.id)} />)}</div>
+          <div className="space-y-3">{featured.map(item => <ExclusiveFeaturedCard key={item.id} item={item} accent={accent} isCreator={isCreator} onFeature={() => toggleFeature(item.id, item.is_featured)} onVisibility={() => toggleVisibility(item.id, item.is_visible)} onEligibleDrop={() => toggleEligibleDailyDrop(item.id, item.eligible_daily_drop)} onDelete={() => deleteItem(item.id)} />)}</div>
         </Bin>
       )}
 
       {byType.map(({ type, label, items: typeItems }) => (
         <Bin key={type} label={label} icon={TYPE_ICONS[type] ?? Lock} accent={accent}>
-          <div className="grid grid-cols-2 gap-3">{typeItems.map(item => <ExclusiveCard key={item.id} item={item} accent={accent} isCreator={isCreator} onFeature={() => toggleFeature(item.id, item.is_featured)} onDelete={() => deleteItem(item.id)} />)}</div>
+          <div className="grid grid-cols-2 gap-3">{typeItems.map(item => <ExclusiveCard key={item.id} item={item} accent={accent} isCreator={isCreator} onFeature={() => toggleFeature(item.id, item.is_featured)} onVisibility={() => toggleVisibility(item.id, item.is_visible)} onEligibleDrop={() => toggleEligibleDailyDrop(item.id, item.eligible_daily_drop)} onDelete={() => deleteItem(item.id)} />)}</div>
         </Bin>
       ))}
 
@@ -99,8 +116,6 @@ export function ExclusivesRoom({ onNavigate }: ExclusivesRoomProps) {
           {[
             { key: 'title', label: 'Title *', placeholder: 'e.g. VIP Download Pack...' },
             { key: 'description', label: 'Description', placeholder: 'What is this?...' },
-            { key: 'cover_url', label: 'Cover Image URL', placeholder: 'https://...', type: 'url' },
-            { key: 'file_url', label: 'File / Access URL', placeholder: 'https://...', type: 'url' },
           ].map(f => (
             <div key={f.key}>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">{f.label}</label>
@@ -108,10 +123,26 @@ export function ExclusivesRoom({ onNavigate }: ExclusivesRoomProps) {
             </div>
           ))}
           <div>
+            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Cover Image</label>
+            <ImageUpload value={form.cover_url} onChange={url => setForm(p => ({ ...p, cover_url: url }))} />
+          </div>
+          <div>
+            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">File / Access</label>
+            <FileUpload value={form.file_url} onChange={url => setForm(p => ({ ...p, file_url: url }))} />
+          </div>
+          <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Type</label>
             <select value={form.file_type} onChange={e => setForm(p => ({ ...p, file_type: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm outline-none">
               {Object.entries(TYPE_SINGULAR).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
+          </div>
+          <div className="flex items-center gap-3 py-2">
+            <button onClick={() => setForm(p => ({ ...p, eligible_daily_drop: !p.eligible_daily_drop }))} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all" style={{ background: form.eligible_daily_drop ? accent : 'rgba(255,255,255,0.1)', color: form.eligible_daily_drop ? '#000' : 'white' }}>
+              <Zap size={14} /> Daily Drop
+            </button>
+            <button onClick={() => setForm(p => ({ ...p, is_visible: !p.is_visible }))} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all" style={{ background: form.is_visible ? accent : 'rgba(255,255,255,0.1)', color: form.is_visible ? '#000' : 'white' }}>
+              {form.is_visible ? <Eye size={14} /> : <EyeOff size={14} />} {form.is_visible ? 'Visible' : 'Hidden'}
+            </button>
           </div>
           <button onClick={addItem} disabled={!form.title.trim() || saving} className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-50 active:scale-95 transition-all" style={{ background: accent, color: '#000' }}>{saving ? 'Adding...' : 'Add Exclusive'}</button>
         </div>
@@ -124,33 +155,51 @@ function Bin({ label, icon: Icon, accent, children }: { label: string; icon: Rea
   return (<div className="py-2"><div className="flex items-center gap-2 mb-3"><div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: `${accent}18` }}><Icon size={12} style={{ color: accent }} /></div><p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: accent }}>{label}</p></div>{children}</div>);
 }
 
-function ExclusiveFeaturedCard({ item, accent, isCreator, onFeature, onDelete }: { item: Exclusive; accent: string; isCreator: boolean; onFeature: () => void; onDelete: () => void }) {
+function ExclusiveFeaturedCard({ item, accent, isCreator, onFeature, onVisibility, onEligibleDrop, onDelete }: { item: Exclusive; accent: string; isCreator: boolean; onFeature: () => void; onVisibility: () => void; onEligibleDrop: () => void; onDelete: () => void }) {
   const IconComp = TYPE_ICONS[item.file_type] ?? Lock;
   return (
     <div className="relative rounded-2xl overflow-hidden" style={{ border: `1px solid ${accent}40`, background: `${accent}0c` }}>
       {item.cover_url && <img src={item.cover_url} alt={item.title} className="w-full h-40 object-cover" />}
       <div className="p-4">
-        <div className="flex items-center gap-1.5 mb-2"><IconComp size={12} style={{ color: accent }} /><span className="text-[10px] uppercase tracking-widest" style={{ color: accent }}>{TYPE_SINGULAR[item.file_type]}</span><Star size={10} style={{ color: accent }} fill={accent} className="ml-auto" /></div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <IconComp size={12} style={{ color: accent }} />
+          <span className="text-[10px] uppercase tracking-widest" style={{ color: accent }}>{TYPE_SINGULAR[item.file_type]}</span>
+          {item.eligible_daily_drop && <Zap size={10} style={{ color: accent }} fill={accent} />}
+          <Star size={10} style={{ color: accent }} fill={accent} className="ml-auto" />
+        </div>
         <h3 className="text-white font-bold text-base mb-1">{item.title}</h3>
         {item.description && <p className="text-white/50 text-sm mb-3">{item.description}</p>}
         {item.file_url && <a href={item.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-95" style={{ background: accent, color: '#000' }}><IconComp size={14} /> Access Now</a>}
       </div>
-      {isCreator && <div className="absolute top-2 right-2 flex gap-1"><button onClick={onFeature} className="w-6 h-6 rounded-full flex items-center justify-center text-yellow-400" style={{ background: 'rgba(0,0,0,0.5)' }}><Star size={10} /></button><button onClick={onDelete} className="w-6 h-6 rounded-full flex items-center justify-center text-red-400/50 hover:text-red-400" style={{ background: 'rgba(0,0,0,0.5)' }}><Trash2 size={10} /></button></div>}
+      {isCreator && <div className="absolute top-2 right-2 flex gap-1">
+        <button onClick={onFeature} className="w-6 h-6 rounded-full flex items-center justify-center text-yellow-400" style={{ background: 'rgba(0,0,0,0.5)' }}><Star size={10} /></button>
+        <button onClick={onEligibleDrop} className="w-6 h-6 rounded-full flex items-center justify-center text-yellow-400" style={{ background: 'rgba(0,0,0,0.5)', opacity: item.eligible_daily_drop ? 1 : 0.5 }}><Zap size={10} /></button>
+        <button onClick={onVisibility} className="w-6 h-6 rounded-full flex items-center justify-center text-blue-400/50 hover:text-blue-400" style={{ background: 'rgba(0,0,0,0.5)' }}>{item.is_visible ? <Eye size={10} /> : <EyeOff size={10} />}</button>
+        <button onClick={onDelete} className="w-6 h-6 rounded-full flex items-center justify-center text-red-400/50 hover:text-red-400" style={{ background: 'rgba(0,0,0,0.5)' }}><Trash2 size={10} /></button>
+      </div>}
     </div>
   );
 }
 
-function ExclusiveCard({ item, accent, isCreator, onFeature, onDelete }: { item: Exclusive; accent: string; isCreator: boolean; onFeature: () => void; onDelete: () => void }) {
+function ExclusiveCard({ item, accent, isCreator, onFeature, onVisibility, onEligibleDrop, onDelete }: { item: Exclusive; accent: string; isCreator: boolean; onFeature: () => void; onVisibility: () => void; onEligibleDrop: () => void; onDelete: () => void }) {
   const IconComp = TYPE_ICONS[item.file_type] ?? Lock;
   return (
     <div className="relative rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
       {item.cover_url ? <img src={item.cover_url} alt={item.title} className="w-full aspect-square object-cover" /> : <div className="w-full aspect-square flex items-center justify-center" style={{ background: `${accent}10` }}><IconComp size={28} style={{ color: accent, opacity: 0.5 }} /></div>}
       <div className="p-3">
-        <p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: accent }}>{TYPE_SINGULAR[item.file_type]}</p>
+        <div className="flex items-center gap-1 mb-0.5">
+          <p className="text-[9px] uppercase tracking-widest" style={{ color: accent }}>{TYPE_SINGULAR[item.file_type]}</p>
+          {item.eligible_daily_drop && <Zap size={8} style={{ color: accent }} fill={accent} />}
+        </div>
         <p className="text-white text-xs font-semibold truncate">{item.title}</p>
         {item.file_url && <a href={item.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1 w-full py-1.5 rounded-lg text-[10px] font-bold mt-2 transition-all active:scale-95" style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>Access <IconComp size={9} /></a>}
       </div>
-      {isCreator && <div className="absolute top-1 right-1 flex gap-0.5"><button onClick={onFeature} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-yellow-400"><Star size={8} /></button><button onClick={onDelete} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-red-400"><Trash2 size={8} /></button></div>}
+      {isCreator && <div className="absolute top-1 right-1 flex gap-0.5">
+        <button onClick={onFeature} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-yellow-400"><Star size={8} /></button>
+        <button onClick={onEligibleDrop} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-yellow-400" style={{ opacity: item.eligible_daily_drop ? 1 : 0.5 }}><Zap size={8} /></button>
+        <button onClick={onVisibility} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-blue-400">{item.is_visible ? <Eye size={8} /> : <EyeOff size={8} />}</button>
+        <button onClick={onDelete} className="w-5 h-5 rounded-full flex items-center justify-center text-white/20 hover:text-red-400"><Trash2 size={8} /></button>
+      </div>}
     </div>
   );
 }

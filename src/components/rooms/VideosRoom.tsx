@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Play, X, Star, Film, Pin, Plus, Trash2 } from 'lucide-react';
+import { Play, X, Star, Film, Pin, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePlace } from '../../contexts/PlaceContext';
 import { Video, ViewName } from '../../types';
 import { Modal } from '../ui/Modal';
+import { ImageUpload } from '../ui/ImageUpload';
 
 const TYPE_LABELS: Record<string, string> = {
   music_video: 'Music Videos', short: 'Shorts / Reels', interview: 'Interviews',
@@ -25,7 +26,7 @@ export function VideosRoom({ onNavigate }: VideosRoomProps) {
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', video_url: '', thumbnail_url: '', type: 'music_video' });
+  const [form, setForm] = useState({ title: '', description: '', video_url: '', thumbnail_url: '', type: 'music_video', is_visible: true });
 
   const accent = profile?.accent_color ?? '#EC4899';
 
@@ -33,7 +34,9 @@ export function VideosRoom({ onNavigate }: VideosRoomProps) {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('videos').select('*').eq('creator_id', profile!.id).order('is_pinned', { ascending: false }).order('sort_order');
+    let query = supabase.from('videos').select('*').eq('creator_id', profile!.id);
+    if (!isCreator) query = query.eq('is_visible', true);
+    const { data } = await query.order('is_pinned', { ascending: false }).order('sort_order');
     setVideos(data ?? []);
     setLoading(false);
   }
@@ -43,12 +46,12 @@ export function VideosRoom({ onNavigate }: VideosRoomProps) {
     setSaving(true);
     await supabase.from('videos').insert({
       creator_id: profile!.id, title: form.title.trim(), description: form.description.trim(),
-      video_url: form.video_url.trim(), thumbnail_url: form.thumbnail_url.trim(), type: form.type, sort_order: videos.length,
+      video_url: form.video_url.trim(), thumbnail_url: form.thumbnail_url.trim(), type: form.type, sort_order: videos.length, is_visible: true,
     });
-    setSaving(false); setAddOpen(false); setForm({ title: '', description: '', video_url: '', thumbnail_url: '', type: 'music_video' }); load();
+    setSaving(false); setAddOpen(false); setForm({ title: '', description: '', video_url: '', thumbnail_url: '', type: 'music_video', is_visible: true }); load();
   }
 
-  async function toggle(id: string, field: 'is_pinned' | 'is_featured', val: boolean) {
+  async function toggle(id: string, field: 'is_pinned' | 'is_featured' | 'is_visible', val: boolean) {
     await supabase.from('videos').update({ [field]: !val }).eq('id', id);
     setVideos(prev => prev.map(v => v.id === id ? { ...v, [field]: !val } : v));
   }
@@ -87,7 +90,7 @@ export function VideosRoom({ onNavigate }: VideosRoomProps) {
                     <p className="text-white/50 text-xs">{TYPE_SINGULAR[video.type]}</p>
                   </div>
                 </button>
-                {isCreator && <CreatorInline accent={accent} onPin={() => toggle(video.id, 'is_pinned', video.is_pinned)} onFeature={() => toggle(video.id, 'is_featured', video.is_featured)} onDelete={() => deleteVideo(video.id)} isPinned={video.is_pinned} isFeatured={video.is_featured} />}
+                {isCreator && <CreatorInline accent={accent} onPin={() => toggle(video.id, 'is_pinned', video.is_pinned)} onFeature={() => toggle(video.id, 'is_featured', video.is_featured)} onVisibility={() => toggle(video.id, 'is_visible', video.is_visible)} onDelete={() => deleteVideo(video.id)} isPinned={video.is_pinned} isFeatured={video.is_featured} isVisible={video.is_visible} />}
               </div>
             ))}
           </Bin>
@@ -109,7 +112,7 @@ export function VideosRoom({ onNavigate }: VideosRoomProps) {
                     </div>
                     {video.is_pinned && <Pin size={10} className="text-white/30 flex-shrink-0" />}
                   </button>
-                  {isCreator && <CreatorInlineSmall accent={accent} onPin={() => toggle(video.id, 'is_pinned', video.is_pinned)} onFeature={() => toggle(video.id, 'is_featured', video.is_featured)} onDelete={() => deleteVideo(video.id)} isPinned={video.is_pinned} isFeatured={video.is_featured} />}
+                  {isCreator && <CreatorInlineSmall accent={accent} onPin={() => toggle(video.id, 'is_pinned', video.is_pinned)} onFeature={() => toggle(video.id, 'is_featured', video.is_featured)} onVisibility={() => toggle(video.id, 'is_visible', video.is_visible)} onDelete={() => deleteVideo(video.id)} isPinned={video.is_pinned} isFeatured={video.is_featured} isVisible={video.is_visible} />}
                 </div>
               ))}
             </div>
@@ -144,7 +147,6 @@ export function VideosRoom({ onNavigate }: VideosRoomProps) {
           {[
             { key: 'title', label: 'Title *', placeholder: 'Video title...' },
             { key: 'video_url', label: 'Video URL', placeholder: 'https://...', type: 'url' },
-            { key: 'thumbnail_url', label: 'Thumbnail URL', placeholder: 'https://...', type: 'url' },
             { key: 'description', label: 'Description', placeholder: 'About this video...' },
           ].map(f => (
             <div key={f.key}>
@@ -152,11 +154,16 @@ export function VideosRoom({ onNavigate }: VideosRoomProps) {
               <input type={f.type ?? 'text'} value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/20 text-sm outline-none focus:border-white/25" />
             </div>
           ))}
+          <ImageUpload value={form.thumbnail_url} onChange={url => setForm(p => ({ ...p, thumbnail_url: url }))} label="Thumbnail" creatorId={profile!.id} />
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Type</label>
             <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm outline-none">
               {Object.entries(TYPE_SINGULAR).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
+          </div>
+          <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-white/5">
+            <input type="checkbox" id="is_visible" checked={(form as any).is_visible ?? true} onChange={e => setForm(p => ({ ...p, is_visible: e.target.checked }))} className="rounded" />
+            <label htmlFor="is_visible" className="text-white/60 text-sm flex-1">Make video visible to viewers</label>
           </div>
           <button onClick={addVideo} disabled={!form.title.trim() || saving} className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-50 active:scale-95 transition-all" style={{ background: accent, color: '#000' }}>{saving ? 'Adding...' : 'Add Video'}</button>
         </div>
@@ -169,10 +176,10 @@ function Bin({ label, icon: Icon, accent, children }: { label: string; icon: Rea
   return (<div className="px-4 py-2"><div className="flex items-center gap-2 mb-3"><div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: `${accent}18` }}><Icon size={12} style={{ color: accent }} /></div><p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: accent }}>{label}</p></div>{children}</div>);
 }
 
-function CreatorInline({ accent, onPin, onFeature, onDelete, isPinned, isFeatured }: { accent: string; onPin: () => void; onFeature: () => void; onDelete: () => void; isPinned: boolean; isFeatured: boolean }) {
-  return (<div className="absolute top-2 right-2 flex gap-1"><button onClick={onPin} className={`w-6 h-6 rounded-full flex items-center justify-center ${isPinned ? 'text-white' : 'text-white/30'}`} style={isPinned ? { background: `${accent}40` } : { background: 'rgba(0,0,0,0.5)' }}><Pin size={10} /></button><button onClick={onFeature} className={`w-6 h-6 rounded-full flex items-center justify-center ${isFeatured ? 'text-yellow-400' : 'text-white/30'}`} style={{ background: 'rgba(0,0,0,0.5)' }}><Star size={10} /></button><button onClick={onDelete} className="w-6 h-6 rounded-full flex items-center justify-center text-red-400/50 hover:text-red-400" style={{ background: 'rgba(0,0,0,0.5)' }}><Trash2 size={10} /></button></div>);
+function CreatorInline({ accent, onPin, onFeature, onVisibility, onDelete, isPinned, isFeatured, isVisible }: { accent: string; onPin: () => void; onFeature: () => void; onVisibility: () => void; onDelete: () => void; isPinned: boolean; isFeatured: boolean; isVisible: boolean }) {
+  return (<div className="absolute top-2 right-2 flex gap-1"><button onClick={onPin} className={`w-6 h-6 rounded-full flex items-center justify-center ${isPinned ? 'text-white' : 'text-white/30'}`} style={isPinned ? { background: `${accent}40` } : { background: 'rgba(0,0,0,0.5)' }}><Pin size={10} /></button><button onClick={onFeature} className={`w-6 h-6 rounded-full flex items-center justify-center ${isFeatured ? 'text-yellow-400' : 'text-white/30'}`} style={{ background: 'rgba(0,0,0,0.5)' }}><Star size={10} /></button><button onClick={onVisibility} className={`w-6 h-6 rounded-full flex items-center justify-center ${isVisible ? 'text-white' : 'text-white/30'}`} style={{ background: 'rgba(0,0,0,0.5)' }}>{isVisible ? <Eye size={10} /> : <EyeOff size={10} />}</button><button onClick={onDelete} className="w-6 h-6 rounded-full flex items-center justify-center text-red-400/50 hover:text-red-400" style={{ background: 'rgba(0,0,0,0.5)' }}><Trash2 size={10} /></button></div>);
 }
 
-function CreatorInlineSmall({ accent, onPin, onFeature, onDelete, isPinned, isFeatured }: { accent: string; onPin: () => void; onFeature: () => void; onDelete: () => void; isPinned: boolean; isFeatured: boolean }) {
-  return (<div className="absolute top-1 right-1 flex gap-0.5"><button onClick={onPin} className={`w-5 h-5 rounded-full flex items-center justify-center ${isPinned ? 'text-white' : 'text-white/20'}`} style={isPinned ? { background: `${accent}40` } : {}}><Pin size={8} /></button><button onClick={onFeature} className={`w-5 h-5 rounded-full flex items-center justify-center ${isFeatured ? 'text-yellow-400' : 'text-white/20'}`}><Star size={8} /></button><button onClick={onDelete} className="w-5 h-5 rounded-full flex items-center justify-center text-red-400/40 hover:text-red-400"><Trash2 size={8} /></button></div>);
+function CreatorInlineSmall({ accent, onPin, onFeature, onVisibility, onDelete, isPinned, isFeatured, isVisible }: { accent: string; onPin: () => void; onFeature: () => void; onVisibility: () => void; onDelete: () => void; isPinned: boolean; isFeatured: boolean; isVisible: boolean }) {
+  return (<div className="absolute top-1 right-1 flex gap-0.5"><button onClick={onPin} className={`w-5 h-5 rounded-full flex items-center justify-center ${isPinned ? 'text-white' : 'text-white/20'}`} style={isPinned ? { background: `${accent}40` } : {}}><Pin size={8} /></button><button onClick={onFeature} className={`w-5 h-5 rounded-full flex items-center justify-center ${isFeatured ? 'text-yellow-400' : 'text-white/20'}`}><Star size={8} /></button><button onClick={onVisibility} className={`w-5 h-5 rounded-full flex items-center justify-center ${isVisible ? 'text-white' : 'text-white/20'}`}>{isVisible ? <Eye size={8} /> : <EyeOff size={8} />}</button><button onClick={onDelete} className="w-5 h-5 rounded-full flex items-center justify-center text-red-400/40 hover:text-red-400"><Trash2 size={8} /></button></div>);
 }

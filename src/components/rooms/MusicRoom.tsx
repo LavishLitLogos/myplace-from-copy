@@ -5,6 +5,10 @@ import { usePlace } from '../../contexts/PlaceContext';
 import { useAudio } from '../../contexts/AudioContext';
 import { MusicTrack, MusicAlbum, formatDuration, ViewName } from '../../types';
 import { Modal } from '../ui/Modal';
+import { Reactions } from '../ui/Reactions';
+import { CommentsSection } from '../ui/CommentsSection';
+import { AudioUpload } from '../ui/AudioUpload';
+import { ImageUpload } from '../ui/ImageUpload';
 
 interface MusicRoomProps {
   onNavigate?: (view: ViewName) => void;
@@ -20,7 +24,8 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
   const [addTrackOpen, setAddTrackOpen] = useState(false);
   const [addAlbumOpen, setAddAlbumOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [trackForm, setTrackForm] = useState({ title: '', artist: '', audio_url: '', cover_url: '', album_id: '', duration_secs: '' });
+  const [trackForm, setTrackForm] = useState({ title: '', artist: '', audio_url: '', cover_url: '', album_id: '' });
+  const [trackDuration, setTrackDuration] = useState<number>(0);
   const [albumForm, setAlbumForm] = useState({ title: '', type: 'album', cover_url: '', release_year: '', description: '' });
 
   const accent = profile?.accent_color ?? '#EC4899';
@@ -32,9 +37,15 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
 
   async function load() {
     setLoading(true);
+    let tracksQuery = supabase.from('music_tracks').select('*').eq('creator_id', profile!.id);
+    if (!isCreator) tracksQuery = tracksQuery.eq('is_visible', true);
+
+    let albumsQuery = supabase.from('music_albums').select('*').eq('creator_id', profile!.id);
+    if (!isCreator) albumsQuery = albumsQuery.eq('is_visible', true);
+
     const [{ data: t }, { data: a }] = await Promise.all([
-      supabase.from('music_tracks').select('*').eq('creator_id', profile!.id).order('is_pinned', { ascending: false }).order('sort_order'),
-      supabase.from('music_albums').select('*').eq('creator_id', profile!.id).order('is_pinned', { ascending: false }).order('sort_order'),
+      tracksQuery.order('is_pinned', { ascending: false }).order('sort_order'),
+      albumsQuery.order('is_pinned', { ascending: false }).order('sort_order'),
     ]);
     setTracks(t ?? []);
     setAlbums(a ?? []);
@@ -42,7 +53,9 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
   }
 
   async function loadAlbumTracks(album: MusicAlbum) {
-    const { data } = await supabase.from('music_tracks').select('*').eq('creator_id', profile!.id).eq('album_id', album.id).order('track_number');
+    let query = supabase.from('music_tracks').select('*').eq('creator_id', profile!.id).eq('album_id', album.id);
+    if (!isCreator) query = query.eq('is_visible', true);
+    const { data } = await query.order('track_number');
     setSelectedAlbum({ ...album, tracks: data ?? [] });
   }
 
@@ -56,12 +69,13 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
     await supabase.from('music_tracks').insert({
       creator_id: profile!.id, title: trackForm.title.trim(), artist: trackForm.artist.trim(),
       audio_url: trackForm.audio_url.trim(), cover_url: trackForm.cover_url.trim(),
-      album_id: trackForm.album_id || null, duration_secs: parseInt(trackForm.duration_secs) || 0,
-      sort_order: tracks.length,
+      album_id: trackForm.album_id || null, duration_secs: trackDuration || 0,
+      sort_order: tracks.length, is_visible: true, allow_comments: true,
     });
     setSaving(false);
     setAddTrackOpen(false);
-    setTrackForm({ title: '', artist: '', audio_url: '', cover_url: '', album_id: '', duration_secs: '' });
+    setTrackForm({ title: '', artist: '', audio_url: '', cover_url: '', album_id: '' });
+    setTrackDuration(0);
     load();
   }
 
@@ -79,7 +93,7 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
     load();
   }
 
-  async function toggleTrackProp(id: string, field: 'is_pinned' | 'is_featured', val: boolean) {
+  async function toggleTrackProp(id: string, field: 'is_pinned' | 'is_featured' | 'is_visible' | 'allow_comments', val: boolean) {
     await supabase.from('music_tracks').update({ [field]: !val }).eq('id', id);
     setTracks(prev => prev.map(t => t.id === id ? { ...t, [field]: !val } : t));
   }
@@ -135,6 +149,8 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
               onPlay={() => playTrack(track, tracks)} isCreator={isCreator}
               onTogglePin={() => toggleTrackProp(track.id, 'is_pinned', track.is_pinned)}
               onToggleFeature={() => toggleTrackProp(track.id, 'is_featured', track.is_featured)}
+              onToggleVisibility={() => toggleTrackProp(track.id, 'is_visible', track.is_visible)}
+              onToggleComments={() => toggleTrackProp(track.id, 'allow_comments', track.allow_comments)}
               onDelete={() => deleteTrack(track.id)} />
           ))}
         </Bin>
@@ -148,6 +164,8 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
               onPlay={() => playTrack(track, tracks)} isCreator={isCreator}
               onTogglePin={() => toggleTrackProp(track.id, 'is_pinned', track.is_pinned)}
               onToggleFeature={() => toggleTrackProp(track.id, 'is_featured', track.is_featured)}
+              onToggleVisibility={() => toggleTrackProp(track.id, 'is_visible', track.is_visible)}
+              onToggleComments={() => toggleTrackProp(track.id, 'allow_comments', track.allow_comments)}
               onDelete={() => deleteTrack(track.id)} />
           ))}
         </Bin>
@@ -161,6 +179,8 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
               onPlay={() => playTrack(track, tracks)} isCreator={isCreator}
               onTogglePin={() => toggleTrackProp(track.id, 'is_pinned', track.is_pinned)}
               onToggleFeature={() => toggleTrackProp(track.id, 'is_featured', track.is_featured)}
+              onToggleVisibility={() => toggleTrackProp(track.id, 'is_visible', track.is_visible)}
+              onToggleComments={() => toggleTrackProp(track.id, 'allow_comments', track.allow_comments)}
               onDelete={() => deleteTrack(track.id)} />
           ))}
         </Bin>
@@ -219,6 +239,8 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
                 onPlay={() => playTrack(track, selectedAlbum.tracks ?? [])} isCreator={isCreator}
                 onTogglePin={() => toggleTrackProp(track.id, 'is_pinned', track.is_pinned)}
                 onToggleFeature={() => toggleTrackProp(track.id, 'is_featured', track.is_featured)}
+                onToggleVisibility={() => toggleTrackProp(track.id, 'is_visible', track.is_visible)}
+                onToggleComments={() => toggleTrackProp(track.id, 'allow_comments', track.allow_comments)}
                 onDelete={() => deleteTrack(track.id)} />
             ))}
             {(selectedAlbum.tracks ?? []).length === 0 && <p className="text-white/30 text-sm text-center py-6">No tracks in this album</p>}
@@ -253,9 +275,6 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
           {[
             { key: 'title', label: 'Title *', placeholder: 'Track title...' },
             { key: 'artist', label: 'Artist', placeholder: 'Artist name...' },
-            { key: 'audio_url', label: 'Audio URL', placeholder: 'https://...', type: 'url' },
-            { key: 'cover_url', label: 'Cover Art URL', placeholder: 'https://...', type: 'url' },
-            { key: 'duration_secs', label: 'Duration (seconds)', placeholder: '180', type: 'number' },
           ].map(f => (
             <div key={f.key}>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">{f.label}</label>
@@ -263,6 +282,17 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/20 text-sm outline-none focus:border-white/25" />
             </div>
           ))}
+          <div>
+            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Audio File</label>
+            <AudioUpload onChange={(url, duration) => {
+              setTrackForm(p => ({ ...p, audio_url: url }));
+              setTrackDuration(duration || 0);
+            }} />
+          </div>
+          <div>
+            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Cover Art</label>
+            <ImageUpload onChange={(url) => setTrackForm(p => ({ ...p, cover_url: url }))} />
+          </div>
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Album (optional)</label>
             <select value={trackForm.album_id} onChange={e => setTrackForm(p => ({ ...p, album_id: e.target.value }))}
@@ -282,7 +312,6 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
         <div className="p-4 space-y-3">
           {[
             { key: 'title', label: 'Title *', placeholder: 'Album title...' },
-            { key: 'cover_url', label: 'Cover Art URL', placeholder: 'https://...', type: 'url' },
             { key: 'release_year', label: 'Release Year', placeholder: '2024', type: 'number' },
             { key: 'description', label: 'Description', placeholder: 'About this album...' },
           ].map(f => (
@@ -292,6 +321,10 @@ export function MusicRoom({ onNavigate }: MusicRoomProps) {
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/20 text-sm outline-none focus:border-white/25" />
             </div>
           ))}
+          <div>
+            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Cover Art</label>
+            <ImageUpload onChange={(url) => setAlbumForm(p => ({ ...p, cover_url: url }))} />
+          </div>
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Type</label>
             <select value={albumForm.type} onChange={e => setAlbumForm(p => ({ ...p, type: e.target.value }))}
@@ -322,40 +355,48 @@ function Bin({ label, icon: Icon, accent, children }: { label: string; icon: Rea
   );
 }
 
-function TrackRow({ track, accent, currentTrack, isPlaying, onPlay, isCreator, onTogglePin, onToggleFeature, onDelete }: {
+function TrackRow({ track, accent, currentTrack, isPlaying, onPlay, isCreator, onTogglePin, onToggleFeature, onToggleVisibility, onToggleComments, onDelete }: {
   track: MusicTrack; accent: string; currentTrack: MusicTrack | null; isPlaying: boolean; onPlay: () => void;
-  isCreator: boolean; onTogglePin: () => void; onToggleFeature: () => void; onDelete: () => void;
+  isCreator: boolean; onTogglePin: () => void; onToggleFeature: () => void; onToggleVisibility?: () => void; onToggleComments?: () => void; onDelete: () => void;
 }) {
   const active = currentTrack?.id === track.id;
   return (
-    <div className="flex items-center gap-3 p-3 rounded-xl transition-all" style={{ background: active ? `${accent}18` : 'rgba(255,255,255,0.03)', border: active ? `1px solid ${accent}40` : '1px solid transparent' }}>
-      <button onClick={onPlay} className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative">
-        {track.cover_url ? <img src={track.cover_url} alt={track.title} className="w-full h-full object-cover" />
-          : <div className="w-full h-full flex items-center justify-center" style={{ background: `${accent}20` }}><Music size={16} style={{ color: accent }} /></div>}
-        {active && <div className="absolute inset-0 flex items-center justify-center" style={{ background: `${accent}80` }}>
-          {isPlaying ? <Pause size={14} className="text-white" fill="white" /> : <Play size={14} className="text-white" fill="white" style={{ marginLeft: 1 }} />}
-        </div>}
-      </button>
-      <div className="flex-1 min-w-0">
-        <p className={`font-medium text-sm truncate ${active ? 'text-white' : 'text-white/90'}`}>
-          {track.is_pinned && <Pin size={10} className="inline mr-1 text-white/40" />}
-          {track.title}
-        </p>
-        <p className="text-white/40 text-xs truncate">{track.artist}</p>
+    <div>
+      <div className="flex items-center gap-3 p-3 rounded-xl transition-all" style={{ background: active ? `${accent}18` : 'rgba(255,255,255,0.03)', border: active ? `1px solid ${accent}40` : '1px solid transparent' }}>
+        <button onClick={onPlay} className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative">
+          {track.cover_url ? <img src={track.cover_url} alt={track.title} className="w-full h-full object-cover" />
+            : <div className="w-full h-full flex items-center justify-center" style={{ background: `${accent}20` }}><Music size={16} style={{ color: accent }} /></div>}
+          {active && <div className="absolute inset-0 flex items-center justify-center" style={{ background: `${accent}80` }}>
+            {isPlaying ? <Pause size={14} className="text-white" fill="white" /> : <Play size={14} className="text-white" fill="white" style={{ marginLeft: 1 }} />}
+          </div>}
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className={`font-medium text-sm truncate ${active ? 'text-white' : 'text-white/90'}`}>
+            {track.is_pinned && <Pin size={10} className="inline mr-1 text-white/40" />}
+            {track.title}
+          </p>
+          <p className="text-white/40 text-xs truncate">{track.artist}</p>
+        </div>
+        {track.is_featured && <Star size={12} style={{ color: accent }} />}
+        {track.duration_secs > 0 && <span className="text-white/30 text-xs flex-shrink-0">{formatDuration(track.duration_secs)}</span>}
+        {isCreator && (
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <button onClick={onTogglePin} className={`w-6 h-6 rounded-full flex items-center justify-center ${track.is_pinned ? 'text-white' : 'text-white/20'}`} style={track.is_pinned ? { background: `${accent}30` } : {}}>
+              <Pin size={10} />
+            </button>
+            <button onClick={onToggleFeature} className={`w-6 h-6 rounded-full flex items-center justify-center ${track.is_featured ? 'text-yellow-400' : 'text-white/20'}`}>
+              <Star size={10} />
+            </button>
+            <button onClick={onDelete} className="w-6 h-6 rounded-full flex items-center justify-center text-white/20 hover:text-red-400 transition-colors">
+              <Upload size={10} />
+            </button>
+          </div>
+        )}
       </div>
-      {track.is_featured && <Star size={12} style={{ color: accent }} />}
-      {track.duration_secs > 0 && <span className="text-white/30 text-xs flex-shrink-0">{formatDuration(track.duration_secs)}</span>}
-      {isCreator && (
-        <div className="flex items-center gap-0.5 flex-shrink-0">
-          <button onClick={onTogglePin} className={`w-6 h-6 rounded-full flex items-center justify-center ${track.is_pinned ? 'text-white' : 'text-white/20'}`} style={track.is_pinned ? { background: `${accent}30` } : {}}>
-            <Pin size={10} />
-          </button>
-          <button onClick={onToggleFeature} className={`w-6 h-6 rounded-full flex items-center justify-center ${track.is_featured ? 'text-yellow-400' : 'text-white/20'}`}>
-            <Star size={10} />
-          </button>
-          <button onClick={onDelete} className="w-6 h-6 rounded-full flex items-center justify-center text-white/20 hover:text-red-400 transition-colors">
-            <Upload size={10} />
-          </button>
+      {active && (
+        <div className="px-3 py-2 space-y-3">
+          <Reactions itemId={track.id} itemType="music_track" accent={accent} />
+          {track.allow_comments && <CommentsSection itemId={track.id} itemType="music_track" accent={accent} />}
         </div>
       )}
     </div>
