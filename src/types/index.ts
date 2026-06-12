@@ -39,6 +39,8 @@ export interface MusicTrack {
   is_pinned: boolean;
   sort_order: number;
   created_at: string;
+  allow_comments?: boolean;
+  is_daily_drop_eligible?: boolean;
 }
 
 export interface MusicAlbum {
@@ -68,6 +70,8 @@ export interface Video {
   is_pinned: boolean;
   sort_order: number;
   created_at: string;
+  allow_comments?: boolean;
+  is_daily_drop_eligible?: boolean;
 }
 
 export interface NewsPost {
@@ -83,6 +87,8 @@ export interface NewsPost {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  allow_comments?: boolean;
+  is_daily_drop_eligible?: boolean;
 }
 
 export interface MerchProduct {
@@ -110,6 +116,8 @@ export interface Exclusive {
   is_featured: boolean;
   sort_order: number;
   created_at: string;
+  allow_comments?: boolean;
+  is_daily_drop_eligible?: boolean;
 }
 
 export interface ChatMessage {
@@ -124,10 +132,109 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export interface FamzProfile {
+  id: string;
+  user_id: string;
+  display_name: string;
+  display_color: string;
+  avatar_url: string;
+  created_at: string;
+}
+
+export interface CreatorTap {
+  id: string;
+  famz_id: string;
+  creator_id: string;
+  created_at: string;
+}
+
+export interface CreatorPresence {
+  id: string;
+  creator_id: string;
+  is_active: boolean;
+  last_active_at: string;
+  status_message: string;
+}
+
+export interface DailyDrop {
+  id: string;
+  creator_id: string;
+  content_type: 'news' | 'music' | 'video' | 'exclusive' | 'merch';
+  content_id: string;
+  title: string;
+  description: string;
+  cover_url: string;
+  source_url: string;
+  is_active: boolean;
+  drop_date: string;
+  created_at: string;
+}
+
+export interface FamzDailyClaim {
+  id: string;
+  famz_id: string;
+  daily_drop_id: string;
+  claim_date: string;
+  created_at: string;
+}
+
+export interface ContentComment {
+  id: string;
+  creator_id: string;
+  content_type: 'news' | 'music' | 'video' | 'exclusive';
+  content_id: string;
+  commenter_id: string | null;
+  commenter_name: string;
+  commenter_color: string;
+  comment: string;
+  is_creator_comment: boolean;
+  created_at: string;
+}
+
+export interface ContentReaction {
+  id: string;
+  creator_id: string;
+  content_type: 'news' | 'music' | 'video' | 'exclusive' | 'comment';
+  content_id: string;
+  user_id: string;
+  reaction_type: 'fire' | 'heart' | 'star' | 'clap' | 'crown';
+  created_at: string;
+}
+
+export interface ContentReport {
+  id: string;
+  creator_id: string;
+  content_type: 'news' | 'music' | 'video' | 'exclusive' | 'comment' | 'chat';
+  content_id: string;
+  reporter_id: string | null;
+  reason: 'hate' | 'harassment' | 'threat' | 'sexual' | 'gore' | 'criminal' | 'other';
+  details: string;
+  status: 'pending' | 'approved' | 'removed' | 'dismissed';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface PlatformSettings {
+  id: string;
+  require_creator_verification: boolean;
+  allow_creator_signups: boolean;
+  allow_famz_signups: boolean;
+  platform_announcement: string;
+  daily_drop_minimum: number;
+  upload_limit_mb: number;
+  maintenance_mode: boolean;
+  support_email: string;
+}
+
 export type ViewName =
   | 'splash'
   | 'home'
   | 'auth'
+  | 'famz:home'
+  | 'famz:grid'
+  | 'famz:dailydrop'
+  | 'famz:settings'
   | 'room:music'
   | 'room:chat'
   | 'room:merch'
@@ -142,7 +249,11 @@ export type ViewName =
   | 'creator:merch'
   | 'creator:exclusives'
   | 'creator:rooms'
-  | 'creator:admin';
+  | 'creator:admin'
+  | 'admin:places'
+  | 'admin:users'
+  | 'admin:moderation'
+  | 'admin:settings';
 
 export const DEFAULT_ROOMS: Omit<Room, 'id' | 'creator_id'>[] = [
   { slug: 'music', name: 'Music', icon: 'Music', color: '#EC4899', enabled: true, sort_order: 0, is_custom: false },
@@ -176,5 +287,12 @@ export function timeAgo(dateStr: string): string {
 export const FAMZ_COLORS = [
   '#EC4899', '#06B6D4', '#22C55E', '#A855F7',
   '#F97316', '#EAB308', '#3B82F6', '#EF4444',
-  '#10B981', '#F59E0B',
+  '#10B981', '#F59E0B', '#CCCCCC', '#6B7280',
+];
+
+export const ACCENT_COLORS = [
+  '#EC4899', '#06B6D4', '#22C55E', '#A855F7',
+  '#F97316', '#EAB308', '#3B82F6', '#EF4444',
+  '#10B981', '#F59E0B', '#8B5CF6', '#14B8A6',
+  '#CCCCCC', '#6B7280', // Chrome colors
 ];
