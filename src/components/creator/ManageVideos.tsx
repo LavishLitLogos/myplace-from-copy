@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Star, Pin, Film, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Star, Pin, Film } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePlace } from '../../contexts/PlaceContext';
 import { Video } from '../../types';
 import { Modal } from '../ui/Modal';
-import { ImageUpload } from '../ui/ImageUpload';
 
 const VIDEO_TYPES = ['music_video', 'short', 'interview', 'behind_scenes', 'livestream_replay'] as const;
 const TYPE_LABELS: Record<string, string> = {
@@ -18,7 +17,7 @@ export function ManageVideos() {
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', video_url: '', thumbnail_url: '', type: 'music_video', is_visible: true });
+  const [form, setForm] = useState({ title: '', description: '', video_url: '', thumbnail_url: '', type: 'music_video' });
 
   const accent = profile?.accent_color ?? '#EC4899';
 
@@ -44,12 +43,11 @@ export function ManageVideos() {
       video_url: form.video_url.trim(),
       thumbnail_url: form.thumbnail_url.trim(),
       type: form.type,
-      is_visible: form.is_visible,
       sort_order: videos.length,
     });
     setSaving(false);
     setAddOpen(false);
-    setForm({ title: '', description: '', video_url: '', thumbnail_url: '', type: 'music_video', is_visible: true });
+    setForm({ title: '', description: '', video_url: '', thumbnail_url: '', type: 'music_video' });
     load();
   }
 
@@ -58,7 +56,7 @@ export function ManageVideos() {
     setVideos(prev => prev.filter(v => v.id !== id));
   }
 
-  async function toggle(id: string, field: 'is_pinned' | 'is_featured' | 'is_visible', val: boolean) {
+  async function toggle(id: string, field: 'is_pinned' | 'is_featured', val: boolean) {
     await supabase.from('videos').update({ [field]: !val }).eq('id', id);
     setVideos(prev => prev.map(v => v.id === id ? { ...v, [field]: !val } : v));
   }
@@ -97,9 +95,6 @@ export function ManageVideos() {
                 <p className="text-white/40 text-xs">{TYPE_LABELS[video.type]}</p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => toggle(video.id, 'is_visible', video.is_visible)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${video.is_visible ? 'text-white' : 'text-white/20'}`} style={video.is_visible ? { background: `${accent}25` } : {}}>
-                  {video.is_visible ? <Eye size={12} /> : <EyeOff size={12} />}
-                </button>
                 <button onClick={() => toggle(video.id, 'is_pinned', video.is_pinned)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${video.is_pinned ? 'text-white' : 'text-white/20'}`} style={video.is_pinned ? { background: `${accent}25` } : {}}>
                   <Pin size={12} />
                 </button>
@@ -120,6 +115,7 @@ export function ManageVideos() {
           {[
             { key: 'title', label: 'Title *', placeholder: 'Video title...' },
             { key: 'video_url', label: 'Video URL', placeholder: 'https://...', type: 'url' },
+            { key: 'thumbnail_url', label: 'Thumbnail URL', placeholder: 'https://...', type: 'url' },
             { key: 'description', label: 'Description', placeholder: 'About this video...' },
           ].map(f => (
             <div key={f.key}>
@@ -134,15 +130,6 @@ export function ManageVideos() {
             </div>
           ))}
           <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Thumbnail</label>
-            <ImageUpload
-              value={form.thumbnail_url}
-              onChange={url => setForm(p => ({ ...p, thumbnail_url: url }))}
-              creatorId={profile!.id}
-              type="video_thumbnails"
-            />
-          </div>
-          <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Type</label>
             <select
               value={form.type}
@@ -151,19 +138,6 @@ export function ManageVideos() {
             >
               {VIDEO_TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
             </select>
-          </div>
-          <div className="flex items-center gap-3 px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl">
-            <input
-              type="checkbox"
-              id="is_visible"
-              checked={form.is_visible}
-              onChange={e => setForm(p => ({ ...p, is_visible: e.target.checked }))}
-              className="w-4 h-4 rounded cursor-pointer"
-            />
-            <label htmlFor="is_visible" className="flex items-center gap-2 text-white text-sm cursor-pointer flex-1">
-              <Eye size={14} />
-              Visible
-            </label>
           </div>
           <button
             onClick={addVideo}

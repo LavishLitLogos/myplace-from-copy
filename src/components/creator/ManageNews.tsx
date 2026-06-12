@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Pin, Star, CreditCard as Edit3, Check, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
+import { Plus, Trash2, Pin, Star, Edit3, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePlace } from '../../contexts/PlaceContext';
 import { NewsPost } from '../../types';
-import { ImageUpload } from '../ui/ImageUpload';
 
 export function ManageNews() {
   const { profile } = usePlace();
@@ -11,8 +10,8 @@ export function ManageNews() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', body: '', cover_url: '', allow_comments: true, is_visible: true });
-  const [editForm, setEditForm] = useState({ title: '', body: '', cover_url: '', allow_comments: true, is_visible: true });
+  const [form, setForm] = useState({ title: '', body: '', cover_url: '' });
+  const [editForm, setEditForm] = useState({ title: '', body: '', cover_url: '' });
   const [saving, setSaving] = useState(false);
 
   const accent = profile?.accent_color ?? '#EC4899';
@@ -41,13 +40,11 @@ export function ManageNews() {
       title: form.title.trim(),
       body: form.body.trim(),
       cover_url: form.cover_url.trim(),
-      allow_comments: form.allow_comments,
-      is_visible: form.is_visible,
       publish_at: new Date().toISOString(),
     });
     setSaving(false);
     setAddOpen(false);
-    setForm({ title: '', body: '', cover_url: '', allow_comments: true, is_visible: true });
+    setForm({ title: '', body: '', cover_url: '' });
     load();
   }
 
@@ -57,8 +54,6 @@ export function ManageNews() {
       title: editForm.title,
       body: editForm.body,
       cover_url: editForm.cover_url,
-      allow_comments: editForm.allow_comments,
-      is_visible: editForm.is_visible,
       updated_at: new Date().toISOString(),
     }).eq('id', id);
     setSaving(false);
@@ -71,7 +66,7 @@ export function ManageNews() {
     setPosts(prev => prev.filter(p => p.id !== id));
   }
 
-  async function toggle(id: string, field: 'is_pinned' | 'is_featured' | 'allow_comments' | 'is_visible', val: boolean) {
+  async function toggle(id: string, field: 'is_pinned' | 'is_featured', val: boolean) {
     await supabase.from('news_posts').update({ [field]: !val }).eq('id', id);
     setPosts(prev => prev.map(p => p.id === id ? { ...p, [field]: !val } : p));
   }
@@ -105,24 +100,13 @@ export function ManageNews() {
             rows={4}
             className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/20 text-sm outline-none focus:border-white/25 resize-none"
           />
-          <ImageUpload value={form.cover_url} onChange={url => setForm(p => ({ ...p, cover_url: url }))} creatorId={profile!.id} type="news_covers" />
-          <div className="flex gap-2 items-center">
-            <button
-              onClick={() => setForm(p => ({ ...p, allow_comments: !p.allow_comments }))}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${form.allow_comments ? 'text-white' : 'text-white/50'}`}
-              style={form.allow_comments ? { background: `${accent}25` } : { background: 'rgba(255,255,255,0.05)' }}
-            >
-              <MessageCircle size={14} /> Comments
-            </button>
-            <button
-              onClick={() => setForm(p => ({ ...p, is_visible: !p.is_visible }))}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${form.is_visible ? 'text-white' : 'text-white/50'}`}
-              style={form.is_visible ? { background: `${accent}25` } : { background: 'rgba(255,255,255,0.05)' }}
-            >
-              {form.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
-              {form.is_visible ? 'Visible' : 'Hidden'}
-            </button>
-          </div>
+          <input
+            value={form.cover_url}
+            onChange={e => setForm(p => ({ ...p, cover_url: e.target.value }))}
+            placeholder="Cover image URL (optional)..."
+            type="url"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/20 text-sm outline-none focus:border-white/25"
+          />
           <div className="flex gap-2">
             <button onClick={addPost} disabled={!form.title.trim() || saving} className="flex-1 py-2.5 rounded-xl font-bold text-sm disabled:opacity-50 active:scale-95 transition-all" style={{ background: accent, color: '#000' }}>
               {saving ? 'Posting...' : 'Post'}
@@ -156,24 +140,12 @@ export function ManageNews() {
                     rows={3}
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none resize-none"
                   />
-                  <ImageUpload value={editForm.cover_url} onChange={url => setEditForm(p => ({ ...p, cover_url: url }))} creatorId={profile!.id} type="news_covers" />
-                  <div className="flex gap-2 items-center">
-                    <button
-                      onClick={() => setEditForm(p => ({ ...p, allow_comments: !p.allow_comments }))}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${editForm.allow_comments ? 'text-white' : 'text-white/50'}`}
-                      style={editForm.allow_comments ? { background: `${accent}25` } : { background: 'rgba(255,255,255,0.05)' }}
-                    >
-                      <MessageCircle size={14} /> Comments
-                    </button>
-                    <button
-                      onClick={() => setEditForm(p => ({ ...p, is_visible: !p.is_visible }))}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${editForm.is_visible ? 'text-white' : 'text-white/50'}`}
-                      style={editForm.is_visible ? { background: `${accent}25` } : { background: 'rgba(255,255,255,0.05)' }}
-                    >
-                      {editForm.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
-                      {editForm.is_visible ? 'Visible' : 'Hidden'}
-                    </button>
-                  </div>
+                  <input
+                    value={editForm.cover_url}
+                    onChange={e => setEditForm(p => ({ ...p, cover_url: e.target.value }))}
+                    placeholder="Cover URL..."
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none"
+                  />
                   <div className="flex gap-2">
                     <button onClick={() => saveEdit(post.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold active:scale-95" style={{ background: accent, color: '#000' }}>
                       <Check size={12} />
@@ -189,14 +161,8 @@ export function ManageNews() {
                       <p className="text-white/40 text-xs line-clamp-2 mt-0.5">{post.body}</p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => { setEditing(post.id); setEditForm({ title: post.title, body: post.body, cover_url: post.cover_url, allow_comments: post.allow_comments, is_visible: post.is_visible }); }} className="w-7 h-7 rounded-full flex items-center justify-center text-white/20 hover:text-white/50 transition-colors">
+                      <button onClick={() => { setEditing(post.id); setEditForm({ title: post.title, body: post.body, cover_url: post.cover_url }); }} className="w-7 h-7 rounded-full flex items-center justify-center text-white/20 hover:text-white/50 transition-colors">
                         <Edit3 size={12} />
-                      </button>
-                      <button onClick={() => toggle(post.id, 'allow_comments', post.allow_comments)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${post.allow_comments ? 'text-white' : 'text-white/20'}`} style={post.allow_comments ? { background: `${accent}25` } : {}}>
-                        <MessageCircle size={12} />
-                      </button>
-                      <button onClick={() => toggle(post.id, 'is_visible', post.is_visible)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${post.is_visible ? 'text-white' : 'text-white/20'}`} style={post.is_visible ? { background: `${accent}25` } : {}}>
-                        {post.is_visible ? <Eye size={12} /> : <EyeOff size={12} />}
                       </button>
                       <button onClick={() => toggle(post.id, 'is_pinned', post.is_pinned)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${post.is_pinned ? 'text-white' : 'text-white/20'}`} style={post.is_pinned ? { background: `${accent}25` } : {}}>
                         <Pin size={12} />

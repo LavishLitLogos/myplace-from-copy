@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Star, Lock, Zap, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Star, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePlace } from '../../contexts/PlaceContext';
 import { Exclusive } from '../../types';
 import { Modal } from '../ui/Modal';
-import { ImageUpload } from '../ui/ImageUpload';
-import { FileUpload } from '../ui/FileUpload';
 
 const FILE_TYPES = ['download', 'vip', 'behind_scenes', 'fan_reward', 'other'] as const;
 const TYPE_LABELS: Record<string, string> = {
@@ -19,7 +17,7 @@ export function ManageExclusives() {
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', cover_url: '', file_url: '', file_type: 'download', is_visible: true, eligible_daily_drop: false });
+  const [form, setForm] = useState({ title: '', description: '', cover_url: '', file_url: '', file_type: 'download' });
 
   const accent = profile?.accent_color ?? '#EC4899';
 
@@ -46,12 +44,10 @@ export function ManageExclusives() {
       file_url: form.file_url.trim(),
       file_type: form.file_type,
       sort_order: items.length,
-      is_visible: form.is_visible,
-      eligible_daily_drop: form.eligible_daily_drop,
     });
     setSaving(false);
     setAddOpen(false);
-    setForm({ title: '', description: '', cover_url: '', file_url: '', file_type: 'download', is_visible: true, eligible_daily_drop: false });
+    setForm({ title: '', description: '', cover_url: '', file_url: '', file_type: 'download' });
     load();
   }
 
@@ -63,16 +59,6 @@ export function ManageExclusives() {
   async function toggleFeature(id: string, featured: boolean) {
     await supabase.from('exclusives').update({ is_featured: !featured }).eq('id', id);
     setItems(prev => prev.map(i => i.id === id ? { ...i, is_featured: !featured } : i));
-  }
-
-  async function toggleDailyDrop(id: string, eligible: boolean) {
-    await supabase.from('exclusives').update({ eligible_daily_drop: !eligible }).eq('id', id);
-    setItems(prev => prev.map(i => i.id === id ? { ...i, eligible_daily_drop: !eligible } : i));
-  }
-
-  async function toggleVisibility(id: string, visible: boolean) {
-    await supabase.from('exclusives').update({ is_visible: !visible }).eq('id', id);
-    setItems(prev => prev.map(i => i.id === id ? { ...i, is_visible: !visible } : i));
   }
 
   return (
@@ -110,12 +96,6 @@ export function ManageExclusives() {
                 <button onClick={() => toggleFeature(item.id, item.is_featured)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${item.is_featured ? 'text-yellow-400' : 'text-white/20 hover:text-white/40'}`}>
                   <Star size={12} />
                 </button>
-                <button onClick={() => toggleDailyDrop(item.id, item.eligible_daily_drop)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${item.eligible_daily_drop ? 'text-blue-400' : 'text-white/20 hover:text-white/40'}`}>
-                  <Zap size={12} />
-                </button>
-                <button onClick={() => toggleVisibility(item.id, item.is_visible)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${item.is_visible ? 'text-white/40 hover:text-white/60' : 'text-white/20 hover:text-white/40'}`}>
-                  {item.is_visible ? <Eye size={12} /> : <EyeOff size={12} />}
-                </button>
                 <button onClick={() => deleteItem(item.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-white/20 hover:text-red-400 transition-colors">
                   <Trash2 size={12} />
                 </button>
@@ -130,6 +110,8 @@ export function ManageExclusives() {
           {[
             { key: 'title', label: 'Title *', placeholder: 'e.g. VIP Download Pack...' },
             { key: 'description', label: 'Description', placeholder: 'What is this?...' },
+            { key: 'cover_url', label: 'Cover Image URL', placeholder: 'https://...', type: 'url' },
+            { key: 'file_url', label: 'File / Access URL', placeholder: 'https://...', type: 'url' },
           ].map(f => (
             <div key={f.key}>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">{f.label}</label>
@@ -143,24 +125,6 @@ export function ManageExclusives() {
             </div>
           ))}
           <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Cover Image</label>
-            <ImageUpload
-              value={form.cover_url}
-              onChange={url => setForm(p => ({ ...p, cover_url: url }))}
-              creatorId={profile!.id}
-              type="exclusive_covers"
-            />
-          </div>
-          <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">File / Access Link</label>
-            <FileUpload
-              value={form.file_url}
-              onChange={url => setForm(p => ({ ...p, file_url: url }))}
-              creatorId={profile!.id}
-              type="exclusive_files"
-            />
-          </div>
-          <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Type</label>
             <select
               value={form.file_type}
@@ -169,24 +133,6 @@ export function ManageExclusives() {
             >
               {FILE_TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
             </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setForm(p => ({ ...p, eligible_daily_drop: !p.eligible_daily_drop }))}
-              className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${form.eligible_daily_drop ? 'text-blue-400 bg-blue-400/20' : 'text-white/20 bg-white/5'}`}
-            >
-              <Zap size={14} />
-            </button>
-            <span className="text-white/60 text-sm">Daily Drop Eligible</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setForm(p => ({ ...p, is_visible: !p.is_visible }))}
-              className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${form.is_visible ? 'text-white/40 bg-white/5' : 'text-white/20 bg-white/5'}`}
-            >
-              {form.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
-            </button>
-            <span className="text-white/60 text-sm">Visible</span>
           </div>
           <button
             onClick={addItem}

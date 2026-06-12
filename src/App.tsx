@@ -3,7 +3,6 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AudioProvider } from './contexts/AudioContext';
 import { PlaceProvider, usePlace } from './contexts/PlaceContext';
 import { HomeScreen } from './components/HomeScreen';
-import { FamzHome } from './components/FamzHome';
 import { AudioPlayer } from './components/AudioPlayer';
 import { MusicRoom } from './components/rooms/MusicRoom';
 import { ChatRoom } from './components/rooms/ChatRoom';
@@ -11,7 +10,6 @@ import { MerchRoom } from './components/rooms/MerchRoom';
 import { VideosRoom } from './components/rooms/VideosRoom';
 import { NewsRoom } from './components/rooms/NewsRoom';
 import { ExclusivesRoom } from './components/rooms/ExclusivesRoom';
-import { DailyDropRoom } from './components/rooms/DailyDropRoom';
 import { CreatorPanel } from './components/creator/CreatorPanel';
 import { ManageProfile } from './components/creator/ManageProfile';
 import { ManageMusic } from './components/creator/ManageMusic';
@@ -24,7 +22,7 @@ import { AdminPanel } from './components/creator/AdminPanel';
 import { AuthScreen } from './components/AuthScreen';
 import { SlidePanel } from './components/ui/SlidePanel';
 import { ViewName } from './types';
-import { Music, MessageCircle, ShoppingBag, Play, Newspaper, Star, Zap } from 'lucide-react';
+import { Music, MessageCircle, ShoppingBag, Play, Newspaper, Star } from 'lucide-react';
 
 const ROOM_META: Record<string, { label: string; icon: typeof Music; color: string }> = {
   music: { label: 'Music', icon: Music, color: '#EC4899' },
@@ -33,7 +31,6 @@ const ROOM_META: Record<string, { label: string; icon: typeof Music; color: stri
   videos: { label: 'Videos', icon: Play, color: '#A855F7' },
   news: { label: 'News', icon: Newspaper, color: '#F97316' },
   exclusives: { label: 'Exclusives', icon: Star, color: '#EAB308' },
-  daily_drop: { label: 'Daily Drop', icon: Zap, color: '#3B82F6' },
 };
 
 const CREATOR_TITLES: Record<string, string> = {
@@ -49,29 +46,25 @@ const CREATOR_TITLES: Record<string, string> = {
 };
 
 function AppInner() {
-  const { loading: authLoading, user } = useAuth();
-  const { profile, rooms, loading: placeLoading, isCreator } = usePlace();
+  const { loading: authLoading } = useAuth();
+  const { profile, rooms, loading: placeLoading, refreshProfile } = usePlace();
   const [view, setView] = useState<ViewName>('splash');
-  const [prevView, setPrevView] = useState<ViewName>('splash');
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (authLoading || placeLoading) return;
     setReady(true);
     if (view === 'splash') {
-      if (profile && isCreator) setView('home');
-      else if (user) setView('famz:home');
-      else setView('auth');
+      setView(profile ? 'home' : 'auth');
     }
   }, [authLoading, placeLoading]);
 
-  // If profile appears after auth, route appropriately
+  // If profile appears after auth, go home
   useEffect(() => {
     if (profile && ready && view === 'auth') {
-      if (isCreator) setView('home');
-      else setView('famz:home');
+      setView('home');
     }
-  }, [profile?.id, ready, isCreator]);
+  }, [profile?.id, ready]);
 
   if (!ready && view === 'splash') {
     return (
@@ -98,17 +91,11 @@ function AppInner() {
   const accent = profile?.accent_color ?? '#EC4899';
 
   function navigate(to: ViewName) {
-    setPrevView(view);
     setView(to);
   }
 
-  function goBack() {
-    setView(prevView);
-  }
-
   function goHome() {
-    if (isCreator) setView('home');
-    else setView('famz:home');
+    setView('home');
   }
 
   const isCreatorView = view.startsWith('creator:');
@@ -122,8 +109,8 @@ function AppInner() {
         {view === 'auth' && (
           <div className="absolute inset-0 overflow-y-auto">
             <AuthScreen
-              onSuccess={() => { if (isCreator) setView('home'); else setView('famz:home'); }}
-              onBack={profile ? goHome : () => {}}
+              onSuccess={() => setView('home')}
+              onBack={profile ? () => setView('home') : () => {}}
             />
           </div>
         )}
@@ -132,13 +119,6 @@ function AppInner() {
         {view === 'home' && (
           <div className="absolute inset-0">
             <HomeScreen onNavigate={navigate} />
-          </div>
-        )}
-
-        {/* FAMZ Home screen */}
-        {view === 'famz:home' && (
-          <div className="absolute inset-0">
-            <FamzHome onNavigate={navigate} />
           </div>
         )}
 
@@ -154,7 +134,7 @@ function AppInner() {
             <SlidePanel
               key={roomView}
               isOpen={view === roomView}
-              onClose={goBack}
+              onClose={goHome}
               title={label}
               showBack
               fullHeight={isChat}
@@ -167,7 +147,6 @@ function AppInner() {
               {slug === 'videos' && <VideosRoom onNavigate={navigate} />}
               {slug === 'news' && <NewsRoom onNavigate={navigate} />}
               {slug === 'exclusives' && <ExclusivesRoom onNavigate={navigate} />}
-              {slug === 'daily_drop' && <DailyDropRoom onNavigate={navigate} />}
             </SlidePanel>
           );
         })}
@@ -175,7 +154,7 @@ function AppInner() {
         {/* Creator management panel */}
         <SlidePanel
           isOpen={isCreatorView}
-          onClose={goBack}
+          onClose={goHome}
           title={creatorTitle}
           showBack
         >
