@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Music, Pin, Star, Disc, Eye, EyeOff, MessageCircle } from 'lucide-react';
+import { Plus, Trash2, Music, Pin, Star, Disc } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePlace } from '../../contexts/PlaceContext';
 import { MusicTrack, MusicAlbum } from '../../types';
 import { Modal } from '../ui/Modal';
-import { AudioUpload } from '../ui/AudioUpload';
-import { ImageUpload } from '../ui/ImageUpload';
 
 export function ManageMusic() {
   const { profile } = usePlace();
@@ -18,8 +16,7 @@ export function ManageMusic() {
 
   const accent = profile?.accent_color ?? '#EC4899';
 
-  const [trackForm, setTrackForm] = useState({ title: '', artist: '', audio_url: '', cover_url: '', album_id: '' });
-  const [trackDuration, setTrackDuration] = useState(0);
+  const [trackForm, setTrackForm] = useState({ title: '', artist: '', audio_url: '', cover_url: '', album_id: '', duration_secs: '' });
   const [albumForm, setAlbumForm] = useState({ title: '', type: 'album', cover_url: '', release_year: '', description: '' });
   const [saving, setSaving] = useState(false);
 
@@ -49,16 +46,13 @@ export function ManageMusic() {
       audio_url: trackForm.audio_url.trim(),
       cover_url: trackForm.cover_url.trim(),
       album_id: trackForm.album_id || null,
-      duration_secs: trackDuration || 0,
-      is_visible: true,
-      allow_comments: true,
+      duration_secs: parseInt(trackForm.duration_secs) || 0,
       sort_order: tracks.length,
     });
     setSaving(false);
     if (!error) {
       setAddTrackOpen(false);
-      setTrackForm({ title: '', artist: '', audio_url: '', cover_url: '', album_id: '' });
-      setTrackDuration(0);
+      setTrackForm({ title: '', artist: '', audio_url: '', cover_url: '', album_id: '', duration_secs: '' });
       load();
     }
   }
@@ -101,17 +95,6 @@ export function ManageMusic() {
     await supabase.from(table).update({ is_featured: !featured }).eq('id', id);
     if (table === 'music_tracks') setTracks(prev => prev.map(t => t.id === id ? { ...t, is_featured: !featured } : t));
     else setAlbums(prev => prev.map(a => a.id === id ? { ...a, is_featured: !featured } : a));
-  }
-
-  async function toggleVisible(id: string, visible: boolean, table: 'music_tracks' | 'music_albums') {
-    await supabase.from(table).update({ is_visible: !visible }).eq('id', id);
-    if (table === 'music_tracks') setTracks(prev => prev.map(t => t.id === id ? { ...t, is_visible: !visible } : t));
-    else setAlbums(prev => prev.map(a => a.id === id ? { ...a, is_visible: !visible } : a));
-  }
-
-  async function toggleComments(id: string, commentsAllowed: boolean) {
-    await supabase.from('music_tracks').update({ allow_comments: !commentsAllowed }).eq('id', id);
-    setTracks(prev => prev.map(t => t.id === id ? { ...t, allow_comments: !commentsAllowed } : t));
   }
 
   return (
@@ -157,12 +140,6 @@ export function ManageMusic() {
                 <p className="text-white/40 text-xs truncate">{track.artist}</p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => toggleVisible(track.id, track.is_visible, 'music_tracks')} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${track.is_visible ? 'text-white' : 'text-white/20 hover:text-white/40'}`} style={track.is_visible ? { background: `${accent}30` } : {}}>
-                  {track.is_visible ? <Eye size={12} /> : <EyeOff size={12} />}
-                </button>
-                <button onClick={() => toggleComments(track.id, track.allow_comments)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${track.allow_comments ? 'text-white' : 'text-white/20 hover:text-white/40'}`} style={track.allow_comments ? { background: `${accent}30` } : {}}>
-                  <MessageCircle size={12} />
-                </button>
                 <button onClick={() => togglePin(track.id, track.is_pinned, 'music_tracks')} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${track.is_pinned ? 'text-white' : 'text-white/20 hover:text-white/40'}`} style={track.is_pinned ? { background: `${accent}30` } : {}}>
                   <Pin size={12} />
                 </button>
@@ -193,9 +170,6 @@ export function ManageMusic() {
                 <p className="text-white/40 text-xs capitalize">{album.type}{album.release_year ? ` · ${album.release_year}` : ''}</p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => toggleVisible(album.id, album.is_visible, 'music_albums')} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${album.is_visible ? 'text-white' : 'text-white/20 hover:text-white/40'}`} style={album.is_visible ? { background: `${accent}30` } : {}}>
-                  {album.is_visible ? <Eye size={12} /> : <EyeOff size={12} />}
-                </button>
                 <button onClick={() => togglePin(album.id, album.is_pinned, 'music_albums')} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${album.is_pinned ? 'text-white' : 'text-white/20 hover:text-white/40'}`} style={album.is_pinned ? { background: `${accent}30` } : {}}>
                   <Pin size={12} />
                 </button>
@@ -217,6 +191,9 @@ export function ManageMusic() {
           {[
             { key: 'title', label: 'Title *', placeholder: 'Track title...' },
             { key: 'artist', label: 'Artist', placeholder: 'Artist name...' },
+            { key: 'audio_url', label: 'Audio URL', placeholder: 'https://...', type: 'url' },
+            { key: 'cover_url', label: 'Cover Art URL', placeholder: 'https://...', type: 'url' },
+            { key: 'duration_secs', label: 'Duration (seconds)', placeholder: '180', type: 'number' },
           ].map(f => (
             <div key={f.key}>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">{f.label}</label>
@@ -229,26 +206,6 @@ export function ManageMusic() {
               />
             </div>
           ))}
-          <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Audio File</label>
-            <AudioUpload
-              value={trackForm.audio_url}
-              onChange={(url, dur) => {
-                setTrackForm(p => ({ ...p, audio_url: url }));
-                if (dur) setTrackDuration(dur);
-              }}
-              creatorId={profile!.id}
-            />
-          </div>
-          <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Cover Art</label>
-            <ImageUpload
-              value={trackForm.cover_url}
-              onChange={url => setTrackForm(p => ({ ...p, cover_url: url }))}
-              creatorId={profile!.id}
-              type="cover_art"
-            />
-          </div>
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Album (optional)</label>
             <select
@@ -276,6 +233,7 @@ export function ManageMusic() {
         <div className="p-4 space-y-3">
           {[
             { key: 'title', label: 'Title *', placeholder: 'Album title...' },
+            { key: 'cover_url', label: 'Cover Art URL', placeholder: 'https://...', type: 'url' },
             { key: 'release_year', label: 'Release Year', placeholder: '2024', type: 'number' },
             { key: 'description', label: 'Description', placeholder: 'About this album...' },
           ].map(f => (
@@ -290,15 +248,6 @@ export function ManageMusic() {
               />
             </div>
           ))}
-          <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Cover Art</label>
-            <ImageUpload
-              value={albumForm.cover_url}
-              onChange={url => setAlbumForm(p => ({ ...p, cover_url: url }))}
-              creatorId={profile!.id}
-              type="album_art"
-            />
-          </div>
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Type</label>
             <select

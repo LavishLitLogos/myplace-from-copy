@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Music, MessageCircle, ShoppingBag, Play, Newspaper, Star, Settings, User, Circle, Grid2x2 as Grid, Zap } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import {
+  Music, MessageCircle, ShoppingBag, Play, Newspaper,
+  Star, Settings, User, Circle, Grid, Zap,
+} from 'lucide-react';
 import { usePlace } from '../contexts/PlaceContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ViewName, DEFAULT_ROOMS } from '../types';
 import { useAudio } from '../contexts/AudioContext';
-import { PresenceModal } from './ui/PresenceModal';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Music, MessageCircle, ShoppingBag, Play, Newspaper,
@@ -24,15 +25,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [dims, setDims] = useState({ w: 390, h: 700 });
   const [animated, setAnimated] = useState(false);
   const [pulse, setPulse] = useState(false);
-  const [presenceOpen, setPresenceOpen] = useState(false);
-  const [famzCount, setFamzCount] = useState(0);
-
-  // Track FAMZ count (tapped-in users)
-  useEffect(() => {
-    if (!profile) return;
-    supabase.from('famz_relationships').select('id', { count: 'exact', head: true }).eq('creator_id', profile.id)
-      .then(({ count }) => setFamzCount(count ?? 0));
-  }, [profile?.id]);
 
   useEffect(() => {
     function measure() {
@@ -212,52 +204,39 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
         className="absolute flex flex-col items-center gap-2.5"
         style={{ left: cx, top: cy, transform: 'translate(-50%, -50%)' }}
       >
-        {/* Pulse rings — enhanced when creator is active */}
+        {/* Pulse rings */}
         {pulse && (
           <>
             <div
               className="absolute rounded-full animate-ping"
               style={{
-                width: profile?.is_active ? 100 : 88,
-                height: profile?.is_active ? 100 : 88,
+                width: 88,
+                height: 88,
                 border: `1px solid ${accent}`,
-                opacity: profile?.is_active ? 0.2 : 0.1,
-                animationDuration: profile?.is_active ? '1.5s' : '2.5s',
+                opacity: 0.1,
+                animationDuration: '2.5s',
               }}
             />
             <div
               className="absolute rounded-full animate-ping"
               style={{
-                width: profile?.is_active ? 88 : 72,
-                height: profile?.is_active ? 88 : 72,
+                width: 72,
+                height: 72,
                 border: `1px solid ${accent}`,
-                opacity: profile?.is_active ? 0.25 : 0.15,
-                animationDuration: profile?.is_active ? '1.5s' : '2.5s',
+                opacity: 0.15,
+                animationDuration: '2.5s',
                 animationDelay: '0.8s',
               }}
             />
-            {profile?.is_active && (
-              <div
-                className="absolute rounded-full animate-ping"
-                style={{
-                  width: 116,
-                  height: 116,
-                  border: `1px solid ${accent}`,
-                  opacity: 0.12,
-                  animationDuration: '2s',
-                  animationDelay: '1.2s',
-                }}
-              />
-            )}
           </>
         )}
 
         {/* Profile image / logo */}
         <button
           onClick={() => {
-            if (isCreator) setPresenceOpen(true);
-            else if (user) onNavigate('auth');
-            else onNavigate('auth');
+            if (isCreator) onNavigate('creator:panel');
+            else if (user) onNavigate('auth'); // FAMZ — show profile about
+            else onNavigate('auth'); // Not signed in
           }}
           className="relative z-10 transition-transform active:scale-95"
         >
@@ -267,9 +246,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               height: 84,
               borderRadius: '50%',
               border: `2.5px solid ${accent}`,
-              boxShadow: profile?.is_active
-                ? `0 0 32px ${accent}70, 0 0 64px ${accent}30, 0 0 96px ${accent}10`
-                : `0 0 24px ${accent}50, 0 0 48px ${accent}18`,
+              boxShadow: `0 0 24px ${accent}50, 0 0 48px ${accent}18`,
               overflow: 'hidden',
             }}
           >
@@ -286,9 +263,9 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           {isCreator && (
             <div
               className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center"
-              style={{ background: profile?.is_active ? accent : 'rgba(255,255,255,0.15)', border: '2px solid #000' }}
+              style={{ background: accent, border: '2px solid #000' }}
             >
-              <Zap size={10} className="text-black" />
+              <Settings size={10} className="text-black" />
             </div>
           )}
         </button>
@@ -307,16 +284,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           {profile?.welcome_message && (
             <p className="text-white/35 text-[10px] mt-0.5 max-w-[130px] truncate">
               {profile.welcome_message}
-            </p>
-          )}
-          {profile?.is_active && (
-            <p className="text-[9px] font-bold tracking-wider" style={{ color: accent, textShadow: `0 0 8px ${accent}60` }}>
-              {profile.presence_status || "I'm Here"}
-            </p>
-          )}
-          {famzCount > 0 && (
-            <p className="text-white/25 text-[9px] mt-0.5">
-              {famzCount} FAMZ tapped in
             </p>
           )}
         </div>
@@ -367,9 +334,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
       >
         Your Place. Your FAMZ.
       </p>
-
-      {/* Presence Modal */}
-      <PresenceModal isOpen={presenceOpen} onClose={() => setPresenceOpen(false)} />
     </div>
   );
 }

@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Star, ShoppingBag, Zap, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Star, ShoppingBag } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePlace } from '../../contexts/PlaceContext';
 import { MerchProduct, formatPrice } from '../../types';
 import { Modal } from '../ui/Modal';
-import { ImageUpload } from '../ui/ImageUpload';
 
 export function ManageMerch() {
   const { profile } = usePlace();
@@ -15,7 +14,6 @@ export function ManageMerch() {
   const [form, setForm] = useState({
     name: '', description: '', price_cents: '', image_url: '',
     button_label: 'Shop Now', button_url: '',
-    is_visible: true, eligible_daily_drop: false,
   });
 
   const accent = profile?.accent_color ?? '#EC4899';
@@ -44,12 +42,10 @@ export function ManageMerch() {
       button_label: form.button_label.trim() || 'Shop Now',
       button_url: form.button_url.trim(),
       sort_order: products.length,
-      is_visible: form.is_visible,
-      eligible_daily_drop: form.eligible_daily_drop,
     });
     setSaving(false);
     setAddOpen(false);
-    setForm({ name: '', description: '', price_cents: '', image_url: '', button_label: 'Shop Now', button_url: '', is_visible: true, eligible_daily_drop: false });
+    setForm({ name: '', description: '', price_cents: '', image_url: '', button_label: 'Shop Now', button_url: '' });
     load();
   }
 
@@ -61,16 +57,6 @@ export function ManageMerch() {
   async function toggleFeature(id: string, featured: boolean) {
     await supabase.from('merch_products').update({ is_featured: !featured }).eq('id', id);
     setProducts(prev => prev.map(p => p.id === id ? { ...p, is_featured: !featured } : p));
-  }
-
-  async function toggleDailyDropEligible(id: string, eligible: boolean) {
-    await supabase.from('merch_products').update({ eligible_daily_drop: !eligible }).eq('id', id);
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, eligible_daily_drop: !eligible } : p));
-  }
-
-  async function toggleVisibility(id: string, visible: boolean) {
-    await supabase.from('merch_products').update({ is_visible: !visible }).eq('id', id);
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, is_visible: !visible } : p));
   }
 
   return (
@@ -110,12 +96,6 @@ export function ManageMerch() {
                 <button onClick={() => toggleFeature(product.id, product.is_featured)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${product.is_featured ? 'text-yellow-400' : 'text-white/20 hover:text-white/40'}`}>
                   <Star size={12} />
                 </button>
-                <button onClick={() => toggleDailyDropEligible(product.id, product.eligible_daily_drop)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${product.eligible_daily_drop ? 'text-blue-400' : 'text-white/20 hover:text-white/40'}`}>
-                  <Zap size={12} />
-                </button>
-                <button onClick={() => toggleVisibility(product.id, product.is_visible)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${product.is_visible ? 'text-white/40' : 'text-white/20 hover:text-white/40'}`}>
-                  {product.is_visible ? <Eye size={12} /> : <EyeOff size={12} />}
-                </button>
                 <button onClick={() => deleteProduct(product.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-white/20 hover:text-red-400 transition-colors">
                   <Trash2 size={12} />
                 </button>
@@ -130,6 +110,7 @@ export function ManageMerch() {
           {[
             { key: 'name', label: 'Product Name *', placeholder: 'e.g. Logo Tee...' },
             { key: 'price_cents', label: 'Price (USD)', placeholder: '29.99', type: 'number' },
+            { key: 'image_url', label: 'Product Image URL', placeholder: 'https://...', type: 'url' },
             { key: 'description', label: 'Description', placeholder: 'About this product...' },
             { key: 'button_label', label: 'Button Label', placeholder: 'Shop Now' },
             { key: 'button_url', label: 'Button URL', placeholder: 'https://...', type: 'url' },
@@ -145,26 +126,6 @@ export function ManageMerch() {
               />
             </div>
           ))}
-          <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1">Product Image</label>
-            <ImageUpload value={form.image_url} onChange={url => setForm(p => ({ ...p, image_url: url }))} creatorId={profile!.id} type="merch" />
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setForm(p => ({ ...p, eligible_daily_drop: !p.eligible_daily_drop }))}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${form.eligible_daily_drop ? 'bg-blue-500/20 text-blue-400' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
-            >
-              <Zap size={14} />
-              <span className="text-xs font-medium">Daily Drop</span>
-            </button>
-            <button
-              onClick={() => setForm(p => ({ ...p, is_visible: !p.is_visible }))}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${form.is_visible ? 'bg-white/10 text-white/40 hover:bg-white/20' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
-            >
-              {form.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
-              <span className="text-xs font-medium">{form.is_visible ? 'Visible' : 'Hidden'}</span>
-            </button>
-          </div>
           <button
             onClick={addProduct}
             disabled={!form.name.trim() || saving}
