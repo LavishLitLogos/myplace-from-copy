@@ -94,7 +94,10 @@ export function ChatRoom() {
   }
 
   async function deleteMessage(id: string) {
-    await supabase.from('chat_messages').delete().eq('id', id);
+    const { error } = await supabase.from('chat_messages').delete().eq('id', id);
+    if (!error) {
+      setMessages(prev => prev.filter(m => m.id !== id));
+    }
   }
 
   async function pinMessage(id: string, pinned: boolean) {

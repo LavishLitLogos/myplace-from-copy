@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Pin, Star, Edit3, Check, X } from 'lucide-react';
+import { Plus, Trash2, Pin, Star, CreditCard as Edit3, Check, X, MessageCircle, Gift, Lock, Lock as LockOpen } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePlace } from '../../contexts/PlaceContext';
 import { NewsPost } from '../../types';
@@ -69,6 +69,16 @@ export function ManageNews() {
   async function toggle(id: string, field: 'is_pinned' | 'is_featured', val: boolean) {
     await supabase.from('news_posts').update({ [field]: !val }).eq('id', id);
     setPosts(prev => prev.map(p => p.id === id ? { ...p, [field]: !val } : p));
+  }
+
+  async function toggleComments(id: string, current: boolean) {
+    await supabase.from('news_posts').update({ allow_comments: !current }).eq('id', id);
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, allow_comments: !current } : p));
+  }
+
+  async function toggleDailyDrop(id: string, current: boolean) {
+    await supabase.from('news_posts').update({ is_daily_drop_eligible: !current }).eq('id', id);
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, is_daily_drop_eligible: !current } : p));
   }
 
   return (
@@ -164,16 +174,35 @@ export function ManageNews() {
                       <button onClick={() => { setEditing(post.id); setEditForm({ title: post.title, body: post.body, cover_url: post.cover_url }); }} className="w-7 h-7 rounded-full flex items-center justify-center text-white/20 hover:text-white/50 transition-colors">
                         <Edit3 size={12} />
                       </button>
-                      <button onClick={() => toggle(post.id, 'is_pinned', post.is_pinned)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${post.is_pinned ? 'text-white' : 'text-white/20'}`} style={post.is_pinned ? { background: `${accent}25` } : {}}>
-                        <Pin size={12} />
+                      <button onClick={() => toggleComments(post.id, post.allow_comments ?? true)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors`} style={post.allow_comments !== false ? { background: `${accent}25` } : {}} title={post.allow_comments !== false ? 'Comments enabled' : 'Comments disabled'}>
+                        {post.allow_comments !== false ? <MessageCircle size={12} style={{ color: accent }} /> : <Lock size={12} className="text-white/30" />}
                       </button>
-                      <button onClick={() => toggle(post.id, 'is_featured', post.is_featured)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${post.is_featured ? 'text-yellow-400' : 'text-white/20'}`}>
-                        <Star size={12} />
+                      <button onClick={() => toggleDailyDrop(post.id, post.is_daily_drop_eligible ?? false)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors`} style={post.is_daily_drop_eligible ? { background: 'rgba(34,197,94,0.25)' } : {}} title={post.is_daily_drop_eligible ? 'Daily Drop eligible' : 'Not Daily Drop eligible'}>
+                        <Gift size={12} className={post.is_daily_drop_eligible ? 'text-green-400' : 'text-white/30'} />
+                      </button>
+                      <button onClick={() => toggle(post.id, 'is_pinned', post.is_pinned)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors`} style={post.is_pinned ? { background: `${accent}25` } : {}}>
+                        <Pin size={12} className={post.is_pinned ? 'text-white' : 'text-white/30'} />
+                      </button>
+                      <button onClick={() => toggle(post.id, 'is_featured', post.is_featured)} className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors`}>
+                        <Star size={12} className={post.is_featured ? 'text-yellow-400' : 'text-white/30'} fill={post.is_featured ? 'currentColor' : 'none'} />
                       </button>
                       <button onClick={() => deletePost(post.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-white/20 hover:text-red-400 transition-colors">
                         <Trash2 size={12} />
                       </button>
                     </div>
+                  </div>
+                  {/* Toggle indicators */}
+                  <div className="flex items-center gap-3 mt-2 pt-2 border-t border-white/5">
+                    <div className="flex items-center gap-1">
+                      <div className={`w-1.5 h-1.5 rounded-full ${post.allow_comments !== false ? 'bg-green-400' : 'bg-white/20'}`} />
+                      <span className="text-[9px] text-white/30">{post.allow_comments !== false ? 'Comments ON' : 'Comments OFF'}</span>
+                    </div>
+                    {post.is_daily_drop_eligible && (
+                      <div className="flex items-center gap-1">
+                        <Gift size={8} className="text-green-400" />
+                        <span className="text-[9px] text-green-400">Daily Drop</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

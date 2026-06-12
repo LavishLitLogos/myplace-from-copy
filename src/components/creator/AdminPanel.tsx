@@ -1,14 +1,32 @@
-import { Shield, Users, Database, AlertTriangle, Trash2, Globe, Settings, Eye, Ban } from 'lucide-react';
+import { Shield, Users, Database, AlertTriangle, Trash2, Globe, Settings, Eye, Ban, ChevronRight, AlertCircle } from 'lucide-react';
 import { usePlace } from '../../contexts/PlaceContext';
 import { supabase } from '../../lib/supabase';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { ViewName } from '../../types';
 
-export function AdminPanel() {
+interface AdminPanelProps {
+  onNavigate: (view: ViewName) => void;
+}
+
+export function AdminPanel({ onNavigate }: AdminPanelProps) {
   const { profile, refreshProfile } = usePlace();
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmReset, setConfirmReset] = useState<string | false>(false);
   const [message, setMessage] = useState('');
+  const [pendingReports, setPendingReports] = useState(0);
 
   const accent = profile?.accent_color ?? '#EC4899';
+
+  useEffect(() => {
+    loadPendingReports();
+  }, []);
+
+  async function loadPendingReports() {
+    const { count } = await supabase
+      .from('content_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    setPendingReports(count ?? 0);
+  }
 
   async function resetRoomData() {
     if (!profile) return;
@@ -31,6 +49,13 @@ export function AdminPanel() {
     setConfirmReset(false);
     refreshProfile();
   }
+
+  const ADMIN_TOOLS = [
+    { icon: Eye, label: 'View All Places', sub: 'Browse and search all creator Places', view: 'admin:places' as ViewName },
+    { icon: Users, label: 'Manage Users', sub: 'View, suspend, restore FAMZ and creators', view: 'admin:users' as ViewName },
+    { icon: Shield, label: 'Moderate Content', sub: `${pendingReports} report${pendingReports !== 1 ? 's' : ''} pending review`, view: 'admin:moderation' as ViewName, badge: pendingReports > 0 ? pendingReports : undefined },
+    { icon: Settings, label: 'Platform Settings', sub: 'Signups, limits, maintenance mode', view: 'admin:settings' as ViewName },
+  ];
 
   return (
     <div className="pb-8">
@@ -81,18 +106,23 @@ export function AdminPanel() {
           </div>
         </div>
 
-        {/* Platform overview */}
-        <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div className="flex items-center gap-2 mb-3">
-            <Globe size={16} className="text-white/40" />
-            <p className="text-white font-semibold text-sm">Platform Overview</p>
-          </div>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between"><span className="text-white/40">Active Place</span><span className="text-white/70">{profile?.name ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-white/40">Accent Color</span><span className="text-white/70 font-mono">{profile?.accent_color ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-white/40">Rooms</span><span className="text-white/70">6 default</span></div>
-          </div>
-        </div>
+        {/* Pending reports alert */}
+        {pendingReports > 0 && (
+          <button
+            onClick={() => onNavigate('admin:moderation')}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all active:scale-98"
+            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}
+          >
+            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-red-500/20">
+              <AlertCircle size={16} className="text-red-400" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-red-400 font-semibold text-sm">{pendingReports} Pending Reports</p>
+              <p className="text-white/40 text-xs">Click to review</p>
+            </div>
+            <ChevronRight size={16} className="text-red-400/50" />
+          </button>
+        )}
 
         {/* Admin tools */}
         <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -101,18 +131,29 @@ export function AdminPanel() {
             <p className="text-white font-semibold text-sm">Admin Tools</p>
           </div>
           <div className="space-y-2">
-            <button className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-white/50 transition-all active:scale-98" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <Eye size={14} /> View All Places
-            </button>
-            <button className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-white/50 transition-all active:scale-98" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <Users size={14} /> Manage Users
-            </button>
-            <button className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-white/50 transition-all active:scale-98" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <Shield size={14} /> Moderate Content
-            </button>
-            <button className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-white/50 transition-all active:scale-98" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <Ban size={14} /> Platform Settings
-            </button>
+            {ADMIN_TOOLS.map(tool => {
+              const IconComp = tool.icon;
+              return (
+                <button
+                  key={tool.view}
+                  onClick={() => onNavigate(tool.view)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-white/70 transition-all active:scale-98 group"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+                >
+                  <IconComp size={16} className="text-white/50" />
+                  <div className="flex-1 text-left">
+                    <p className="text-white/90">{tool.label}</p>
+                    <p className="text-white/40 text-xs">{tool.sub}</p>
+                  </div>
+                  {tool.badge && (
+                    <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold">
+                      {tool.badge}
+                    </span>
+                  )}
+                  <ChevronRight size={16} className="text-white/20 group-hover:text-white/40" />
+                </button>
+              );
+            })}
           </div>
         </div>
 
